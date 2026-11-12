@@ -2,6 +2,7 @@ package com.example.apk.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,6 +61,12 @@ import com.example.apk.ui.theme.LuPrimarySoft
 import com.example.apk.ui.theme.LuSurface
 import com.example.apk.ui.theme.LuTextDark
 import com.example.apk.ui.theme.LuTextGray
+import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import kotlinx.coroutines.delay
 
 // Logo sementara: kotak biru muda dengan bintang. Nanti diganti ikon asli dari Figma.
@@ -122,11 +130,81 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedLeadingIconColor = LuTextGray
 )
 
+// BARU: mengubah error Firebase menjadi pesan bahasa Indonesia.
+// Urutan penting: WeakPassword turunan dari InvalidCredentials, jadi harus dicek lebih dulu.
+private fun authErrorMessage(e: Exception?): String = when (e) {
+    is FirebaseAuthWeakPasswordException -> "Kata sandi terlalu lemah (minimal 6 karakter)."
+    is FirebaseAuthUserCollisionException -> "Email ini sudah terdaftar. Silakan masuk."
+    is FirebaseAuthInvalidUserException,
+    is FirebaseAuthInvalidCredentialsException -> "Email atau kata sandi salah."
+    is FirebaseNetworkException -> "Tidak ada koneksi internet."
+    else -> "Gagal: ${e?.localizedMessage ?: "terjadi kesalahan"}"
+}
+
+// Tanda tangan fungsi TIDAK berubah (onLogin: () -> Unit), jadi file lain tidak perlu diubah.
+// onLogin sekarang hanya dipanggil kalau login/daftar di Firebase BERHASIL.
 @Composable
 fun LoginScreen(onLogin: () -> Unit) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
+    var isRegister by rememberSaveable { mutableStateOf(false) }
+    var message by rememberSaveable { mutableStateOf<String?>(null) }
+    var messageIsError by rememberSaveable { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    // BARU: proses masuk / daftar ke Firebase Authentication.
+    val submit: () -> Unit = {
+        val e = email.trim()
+        when {
+            e.isEmpty() || password.isEmpty() -> {
+                message = "Email dan kata sandi wajib diisi."
+                messageIsError = true
+            }
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(e).matches() -> {
+                message = "Format email tidak valid."
+                messageIsError = true
+            }
+            else -> {
+                isLoading = true
+                message = null
+                val auth = FirebaseAuth.getInstance()
+                val task = if (isRegister) {
+                    auth.createUserWithEmailAndPassword(e, password)
+                } else {
+                    auth.signInWithEmailAndPassword(e, password)
+                }
+                task.addOnCompleteListener { t ->
+                    isLoading = false
+                    if (t.isSuccessful) {
+                        onLogin()
+                    } else {
+                        message = authErrorMessage(t.exception)
+                        messageIsError = true
+                    }
+                }
+            }
+        }
+    }
+
+    // BARU: kirim email reset kata sandi.
+    val resetPassword: () -> Unit = {
+        val e = email.trim()
+        if (e.isEmpty()) {
+            message = "Isi email dulu, lalu tekan Lupa kata sandi."
+            messageIsError = true
+        } else {
+            FirebaseAuth.getInstance().sendPasswordResetEmail(e).addOnCompleteListener { t ->
+                if (t.isSuccessful) {
+                    message = "Jika email terdaftar, tautan reset kata sandi sudah dikirim. Cek juga folder spam."
+                    messageIsError = false
+                } else {
+                    message = authErrorMessage(t.exception)
+                    messageIsError = true
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -144,8 +222,17 @@ fun LoginScreen(onLogin: () -> Unit) {
         Spacer(Modifier.height(20.dp))
 
         Column(Modifier.fillMaxWidth()) {
-            Text("Selamat Datang", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = LuTextDark)
-            Text("Silakan masuk untuk melanjutkan", fontSize = 13.sp, color = LuTextGray)
+            Text(
+                if (isRegister) "Buat Akun Baru" else "Selamat Datang",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = LuTextDark
+            )
+            Text(
+                if (isRegister) "Isi email dan kata sandi untuk mendaftar" else "Silakan masuk untuk melanjutkan",
+                fontSize = 13.sp,
+                color = LuTextGray
+            )
         }
         Spacer(Modifier.height(16.dp))
 
@@ -189,25 +276,45 @@ fun LoginScreen(onLogin: () -> Unit) {
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     colors = fieldColors()
                 )
+
+                // BARU: pesan error / sukses
+                message?.let {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        it,
+                        fontSize = 13.sp,
+                        color = if (messageIsError) Color(0xFFD32F2F) else Color(0xFF2E7D32)
+                    )
+                }
+
                 Spacer(Modifier.height(20.dp))
                 Button(
-                    onClick = onLogin,
+                    onClick = submit,
+                    enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = LuPrimary)
                 ) {
-                    Text("Masuk", fontWeight = FontWeight.Bold)
+                    Text(
+                        if (isLoading) "Memproses..." else if (isRegister) "Daftar" else "Masuk",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
 
-        Text(
-            "Lupa kata sandi?",
-            modifier = Modifier.align(Alignment.End).padding(top = 12.dp),
-            color = LuPrimary,
-            fontWeight = FontWeight.Bold,
-            fontSize = 13.sp
-        )
+        if (!isRegister) {
+            Text(
+                "Lupa kata sandi?",
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .clickable(onClick = resetPassword)
+                    .padding(top = 12.dp),
+                color = LuPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp
+            )
+        }
 
         Spacer(Modifier.height(24.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -218,7 +325,11 @@ fun LoginScreen(onLogin: () -> Unit) {
         Spacer(Modifier.height(20.dp))
 
         OutlinedButton(
-            onClick = { },
+            onClick = {
+                // Login Google belum disiapkan (butuh library tambahan dan SHA-1).
+                message = "Login dengan Google belum tersedia."
+                messageIsError = true
+            },
             modifier = Modifier.width(170.dp).height(48.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
@@ -229,8 +340,21 @@ fun LoginScreen(onLogin: () -> Unit) {
 
         Spacer(Modifier.height(40.dp))
         Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Text("Belum punya akun? ", fontSize = 13.sp, color = LuTextGray)
-            Text("Buat Akun", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = LuPrimary)
+            Text(
+                if (isRegister) "Sudah punya akun? " else "Belum punya akun? ",
+                fontSize = 13.sp,
+                color = LuTextGray
+            )
+            Text(
+                if (isRegister) "Masuk" else "Buat Akun",
+                modifier = Modifier.clickable {
+                    isRegister = !isRegister
+                    message = null
+                },
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = LuPrimary
+            )
         }
         Spacer(Modifier.height(24.dp))
     }
