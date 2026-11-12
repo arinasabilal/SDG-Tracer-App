@@ -1,4 +1,4 @@
-package com.example.apk_levelup.ui.theme
+package com.example.apk.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
