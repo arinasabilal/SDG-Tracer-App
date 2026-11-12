@@ -1,11 +1,11 @@
-package com.example.apk_levelup
+package com.example.apk
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.example.apk_levelup.ui.LevelUpApp
-import com.example.apk_levelup.ui.theme.LevelUpTheme
+import com.example.apk.ui.LevelUpApp
+import com.example.apk.ui.theme.LevelUpTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
