@@ -1,4 +1,4 @@
-package com.example.apk_levelup.ui
+package com.example.apk.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -45,19 +45,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.apk_levelup.ui.theme.LuBackground
-import com.example.apk_levelup.ui.theme.LuBookBg
-import com.example.apk_levelup.ui.theme.LuLiveBg
-import com.example.apk_levelup.ui.theme.LuLiveIcon
-import com.example.apk_levelup.ui.theme.LuPrimary
-import com.example.apk_levelup.ui.theme.LuSaveBg
-import com.example.apk_levelup.ui.theme.LuSkySoft
-import com.example.apk_levelup.ui.theme.LuSurface
-import com.example.apk_levelup.ui.theme.LuTaskBg
-import com.example.apk_levelup.ui.theme.LuTaskIcon
-import com.example.apk_levelup.ui.theme.LuTeal
-import com.example.apk_levelup.ui.theme.LuTextDark
-import com.example.apk_levelup.ui.theme.LuTextGray
+import com.example.apk.ui.theme.LuBackground
+import com.example.apk.ui.theme.LuBookBg
+import com.example.apk.ui.theme.LuLiveBg
+import com.example.apk.ui.theme.LuLiveIcon
+import com.example.apk.ui.theme.LuPrimary
+import com.example.apk.ui.theme.LuSaveBg
+import com.example.apk.ui.theme.LuSkySoft
+import com.example.apk.ui.theme.LuSurface
+import com.example.apk.ui.theme.LuTaskBg
+import com.example.apk.ui.theme.LuTaskIcon
+import com.example.apk.ui.theme.LuTeal
+import com.example.apk.ui.theme.LuTextDark
+import com.example.apk.ui.theme.LuTextGray
 
 enum class Stage { SPLASH, LOGIN, MAIN }
 
