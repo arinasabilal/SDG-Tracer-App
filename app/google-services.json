@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "45895670116",
-    "project_id": "com-example-apk-adf9c",
-    "storage_bucket": "com-example-apk-adf9c.firebasestorage.app"
+    "project_number": "755454132924",
+    "project_id": "levelup-d00a5",
+    "storage_bucket": "levelup-d00a5.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:45895670116:android:59887610749cb0ac750271",
+        "mobilesdk_app_id": "1:755454132924:android:99a7fc244d50bdbbc406b9",
         "android_client_info": {
           "package_name": "com.example.apk"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDjcaY4wZKrp1JSa4Mc9yHyB5vICToQrlE"
+          "current_key": "AIzaSyDvmN2BNqT23mZxT_YJUFVaZ9uwspk5lLI"
         }
       ],
       "services": {
