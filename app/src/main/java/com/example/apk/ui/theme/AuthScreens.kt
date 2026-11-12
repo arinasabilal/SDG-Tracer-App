@@ -1,4 +1,4 @@
-package com.example.apk_levelup.ui
+package com.example.apk.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -52,13 +52,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.apk_levelup.ui.theme.LuBackground
-import com.example.apk_levelup.ui.theme.LuBorder
-import com.example.apk_levelup.ui.theme.LuPrimary
-import com.example.apk_levelup.ui.theme.LuPrimarySoft
-import com.example.apk_levelup.ui.theme.LuSurface
-import com.example.apk_levelup.ui.theme.LuTextDark
-import com.example.apk_levelup.ui.theme.LuTextGray
+import com.example.apk.ui.theme.LuBackground
+import com.example.apk.ui.theme.LuBorder
+import com.example.apk.ui.theme.LuPrimary
+import com.example.apk.ui.theme.LuPrimarySoft
+import com.example.apk.ui.theme.LuSurface
+import com.example.apk.ui.theme.LuTextDark
+import com.example.apk.ui.theme.LuTextGray
 import kotlinx.coroutines.delay
 
 // Logo sementara: kotak biru muda dengan bintang. Nanti diganti ikon asli dari Figma.
