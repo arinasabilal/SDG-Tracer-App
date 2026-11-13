@@ -1,8 +1,13 @@
+# LOKASI DI GITHUB (TIMPA file lama): .github/workflows/build.yml
+# Syarat: file debug.keystore sudah ada di halaman utama repo (diunggah lebih dulu).
 name: Build debug APK
 
 on:
   push:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -15,14 +20,34 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      # Pakai kunci debug yang tetap, supaya APK baru bisa menimpa APK lama di HP.
+      - name: Pasang kunci debug tetap
+        run: |
+          mkdir -p ~/.android
+          cp debug.keystore ~/.android/debug.keystore
+
       - name: Beri izin gradlew
         run: chmod +x gradlew
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Beri nama tetap pada APK
+        run: cp app/build/outputs/apk/debug/*.apk LevelUp.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: LevelUp.apk
           retention-days: 7
+
+      # APK terbaru selalu ada di halaman Releases dengan nama tetap LevelUp.apk
+      - name: Perbarui rilis "terbaru"
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: terbaru
+          name: Level Up (build terbaru)
+          body: "Build otomatis dari commit ${{ github.sha }}. Unduh LevelUp.apk."
+          prerelease: true
+          files: LevelUp.apk
