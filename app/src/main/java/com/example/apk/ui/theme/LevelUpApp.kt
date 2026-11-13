@@ -257,6 +257,24 @@ fun ProfileScreen(name: String, email: String, onLogout: () -> Unit) {
 
 @Composable
 fun HomeScreen(userName: String = "Pengguna") {
+    val dateKey = remember { HabitRepository.todayKey() }
+    var habits by remember { mutableStateOf<List<Habit>>(emptyList()) }
+    var done by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    DisposableEffect(Unit) {
+        HabitRepository.seedDefaultsIfEmpty()
+        val l1 = HabitRepository.observeHabits { habits = it }
+        val l2 = HabitRepository.observeDone(dateKey) { done = it }
+        onDispose {
+            l1?.remove()
+            l2?.remove()
+        }
+    }
+
+    val total = habits.size
+    val doneCount = habits.count { it.id in done }
+    val percent = if (total == 0) 0 else doneCount * 100 / total
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -276,46 +294,24 @@ fun HomeScreen(userName: String = "Pengguna") {
         }
 
         Spacer(Modifier.height(20.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Ide Kebiasaan", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
-            Text("Lihat semua", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = LuPrimary)
-        }
-        Spacer(Modifier.height(12.dp))
-
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = LuSkySoft)
         ) {
-            Row(
-                modifier = Modifier.padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Up Live", fontSize = 11.sp, color = LuPrimary)
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Minum 2 gelas air sebelum sarapan",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LuTextDark
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text("5 menit • pagi", fontSize = 12.sp, color = LuTextGray)
-                }
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(Color.White),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("💧", fontSize = 24.sp)
-                }
+            Column(Modifier.padding(20.dp)) {
+                Text("Skor kedisiplinan hari ini", fontSize = 12.sp, color = LuPrimary)
+                Spacer(Modifier.height(6.dp))
+                Text("$percent%", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { percent / 100f },
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                    color = LuSky,
+                    trackColor = LuTrack
+                )
+                Spacer(Modifier.height(6.dp))
+                Text("$doneCount dari $total kebiasaan selesai", fontSize = 12.sp, color = LuTextGray)
             }
         }
 
@@ -339,13 +335,35 @@ fun HomeScreen(userName: String = "Pengguna") {
         }
 
         Spacer(Modifier.height(24.dp))
-        Text("History", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
+        Text("Rutinitas hari ini", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
         Spacer(Modifier.height(8.dp))
-        Text(
-            "Riwayat kebiasaanmu akan muncul di sini.",
-            fontSize = 13.sp,
-            color = LuTextGray
-        )
+
+        if (habits.isEmpty()) {
+            Text("Menyiapkan rutinitasmu...", fontSize = 13.sp, color = LuTextGray)
+        }
+        HabitModule.entries.forEach { module ->
+            val items = habits.filter { it.module == module }
+            if (items.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(module.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = LuTeal)
+                items.forEach { h ->
+                    val checked = h.id in done
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { HabitRepository.setDone(dateKey, h.id, !checked) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = checked,
+                            onCheckedChange = { HabitRepository.setDone(dateKey, h.id, it) }
+                        )
+                        Text(h.title, fontSize = 15.sp, color = LuTextDark)
+                    }
+                }
+            }
+        }
     }
 }
 
