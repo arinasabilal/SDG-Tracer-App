@@ -1,5 +1,12 @@
+// LOKASI DI GITHUB (TIMPA file lama): app/src/main/java/com/example/apk/ui/theme/LevelUpApp.kt
+// Pengatur layar utama: splash -> (cek sesi) -> masuk / daftar / lupa sandi -> aplikasi.
+// MainActivity.kt TIDAK perlu diubah: LevelUpApp() tetap dipanggil tanpa parameter.
 package com.example.apk.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,18 +31,22 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,6 +57,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.apk.auth.AuthManager
 import com.example.apk.ui.theme.LuBackground
 import com.example.apk.ui.theme.LuBookBg
 import com.example.apk.ui.theme.LuLiveBg
@@ -59,23 +72,51 @@ import com.example.apk.ui.theme.LuTeal
 import com.example.apk.ui.theme.LuTextDark
 import com.example.apk.ui.theme.LuTextGray
 
-enum class Stage { SPLASH, LOGIN, MAIN }
+private val LogoutRed = Color(0xFFD32F2F)
 
-// Pengatur layar utama: splash -> masuk -> aplikasi
+enum class Stage { SPLASH, LOGIN, REGISTER, FORGOT, MAIN }
+
 @Composable
 fun LevelUpApp() {
     var stage by rememberSaveable { mutableStateOf(Stage.SPLASH) }
-    when (stage) {
-        Stage.SPLASH -> SplashScreen(onFinished = { stage = Stage.LOGIN })
-        Stage.LOGIN -> LoginScreen(onLogin = { stage = Stage.MAIN })
-        Stage.MAIN -> MainShell()
+
+    // Tombol Kembali di HP: dari Daftar / Lupa sandi balik ke Masuk (bukan keluar dari app).
+    BackHandler(enabled = stage == Stage.REGISTER || stage == Stage.FORGOT) {
+        stage = Stage.LOGIN
+    }
+
+    Crossfade(targetState = stage, animationSpec = tween(300), label = "stage") { current ->
+        when (current) {
+            Stage.SPLASH -> SplashScreen(
+                // Cek sesi: kalau masih login, lewati layar masuk.
+                onFinished = { stage = if (AuthManager.isLoggedIn) Stage.MAIN else Stage.LOGIN }
+            )
+            Stage.LOGIN -> LoginScreen(
+                onLogin = { stage = Stage.MAIN },
+                onGoRegister = { stage = Stage.REGISTER },
+                onGoForgot = { stage = Stage.FORGOT }
+            )
+            Stage.REGISTER -> RegisterScreen(
+                onRegistered = { stage = Stage.MAIN },
+                onBackToLogin = { stage = Stage.LOGIN }
+            )
+            Stage.FORGOT -> ForgotPasswordScreen(
+                onBack = { stage = Stage.LOGIN }
+            )
+            Stage.MAIN -> MainShell(
+                onLogout = {
+                    AuthManager.signOut()
+                    stage = Stage.LOGIN
+                }
+            )
+        }
     }
 }
 
 private data class NavTab(val label: String, val icon: ImageVector)
 
 @Composable
-fun MainShell() {
+fun MainShell(onLogout: () -> Unit = {}) {
     val tabs = listOf(
         NavTab("Beranda", Icons.Default.Home),
         NavTab("Jelajah", Icons.Default.Search),
@@ -83,6 +124,8 @@ fun MainShell() {
         NavTab("Profil", Icons.Default.Person)
     )
     var selected by rememberSaveable { mutableIntStateOf(0) }
+    val userName = remember { AuthManager.displayName }
+    val userEmail = remember { AuthManager.email }
 
     Scaffold(
         containerColor = LuBackground,
@@ -112,7 +155,8 @@ fun MainShell() {
                 .fillMaxSize()
         ) {
             when (selected) {
-                0 -> HomeScreen()
+                0 -> HomeScreen(userName)
+                3 -> ProfileScreen(userName, userEmail, onLogout)
                 else -> PlaceholderScreen(tabs[selected].label)
             }
         }
@@ -127,7 +171,83 @@ private fun PlaceholderScreen(name: String) {
 }
 
 @Composable
-fun HomeScreen() {
+fun ProfileScreen(name: String, email: String, onLogout: () -> Unit) {
+    var showConfirm by rememberSaveable { mutableStateOf(false) }
+    val initial = name.trim().firstOrNull()?.uppercase() ?: "?"
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Text("Profil", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
+        Spacer(Modifier.height(20.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = LuSkySoft)
+        ) {
+            Row(
+                modifier = Modifier.padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(LuPrimary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(initial, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text(name, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
+                    Spacer(Modifier.height(2.dp))
+                    Text(email, fontSize = 13.sp, color = LuTextGray)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+        OutlinedButton(
+            onClick = { showConfirm = true },
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, LogoutRed)
+        ) {
+            Text("Keluar", fontWeight = FontWeight.Bold, color = LogoutRed)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("Level Up · Versi 1.0", fontSize = 12.sp, color = LuTextGray)
+    }
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Keluar dari akun?") },
+            text = { Text("Kamu perlu masuk lagi untuk memakai Level Up.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirm = false
+                    onLogout()
+                }) {
+                    Text("Keluar", color = LogoutRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun HomeScreen(userName: String = "Pengguna") {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -140,7 +260,7 @@ fun HomeScreen() {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text("Halo, Maya!", fontSize = 13.sp, color = LuTextGray)
+                Text("Halo, $userName!", fontSize = 13.sp, color = LuTextGray)
                 Text("Level Up", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
             }
             Icon(Icons.Default.Notifications, contentDescription = "Notifikasi", tint = LuTeal)
