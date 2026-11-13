@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation("com.google.firebase:firebase-firestore")
     implementation(libs.firebase.ai)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
