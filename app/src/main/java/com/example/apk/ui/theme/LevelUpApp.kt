@@ -4,6 +4,15 @@
 package com.example.apk.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.DisposableEffect
+import com.example.apk.data.Habit
+import com.example.apk.data.HabitModule
+import com.example.apk.data.HabitRepository
+import com.example.apk.ui.theme.LuSky
+import com.example.apk.ui.theme.LuTrack
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
