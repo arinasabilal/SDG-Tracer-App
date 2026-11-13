@@ -154,7 +154,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             Text("Level Up", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
             Spacer(Modifier.height(6.dp))
-            Text("Satu langkah kecil setiap hari", fontSize = 13.sp, color = LuTextGray)
+            Text("Satu langkah kecil, setiap hari", fontSize = 13.sp, color = LuTextGray)
         }
     }
 }
