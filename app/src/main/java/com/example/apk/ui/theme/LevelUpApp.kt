@@ -489,22 +489,7 @@ fun HomeScreen(
                     Spacer(Modifier.height(10.dp))
                 }
             }
-
-            Spacer(Modifier.height(14.dp))
-            Text("Riwayat", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
-            Spacer(Modifier.height(12.dp))
-            val days = history.keys.sortedDescending().take(7)
-            if (days.isEmpty()) {
-                Text(
-                    "Riwayat muncul setelah kamu mencentang rutinitas di salah satu fitur.",
-                    fontSize = 13.sp,
-                    color = LuTextGray
-                )
-            }
-            days.forEach { key ->
-                HistoryRow(key, todayKey, habits, history[key] ?: emptySet())
-                Spacer(Modifier.height(10.dp))
-            }
+            
             Spacer(Modifier.height(12.dp))
         }
     }
