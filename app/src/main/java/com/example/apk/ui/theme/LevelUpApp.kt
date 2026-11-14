@@ -142,22 +142,43 @@ fun MainShell(onLogout: () -> Unit = {}) {
 
     Scaffold(
         containerColor = LuBackground,
-        bottomBar = {
-            NavigationBar(containerColor = LuSurface) {
-                tabs.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        selected = selected == index,
-                        onClick = { selected = index },
-                        icon = { Icon(tab.icon, contentDescription = tab.label) },
-                        label = { Text(tab.label, fontSize = 11.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = LuTeal,
-                            selectedTextColor = LuTeal,
-                            indicatorColor = Color.Transparent,
-                            unselectedIconColor = LuTextGray,
-                            unselectedTextColor = LuTextGray
-                        )
-                    )
+                bottomBar = {
+            Surface(color = LuSurface, shadowElevation = 8.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .height(56.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        val active = selected == index
+                        val tint = if (active) LuTeal else LuTextGray
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { selected = index },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                tab.icon,
+                                contentDescription = tab.label,
+                                tint = tint,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Text(
+                                tab.label,
+                                fontSize = 11.sp,
+                                color = tint,
+                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        }
+                    }
                 }
             }
         }
