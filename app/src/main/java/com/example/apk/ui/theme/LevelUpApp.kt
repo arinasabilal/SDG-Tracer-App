@@ -187,7 +187,12 @@ fun MainShell(onLogout: () -> Unit = {}) {
                 .padding(bottom = inner.calculateBottomPadding())
                 .fillMaxSize()
         ) {
-            when {
+                      when {
+                selected == 0 && openIdx == 1 -> SaveScreen(
+                    done = done,
+                    todayKey = todayKey,
+                    onBack = { openIdx = -1 }
+                )
                 selected == 0 && openIdx in 0..2 -> ModuleScreen(
                     module = HabitModule.entries[openIdx],
                     habits = habits,
