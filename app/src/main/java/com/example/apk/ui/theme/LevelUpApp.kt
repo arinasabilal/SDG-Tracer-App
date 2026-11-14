@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
@@ -187,7 +188,7 @@ fun MainShell(onLogout: () -> Unit = {}) {
                 .padding(bottom = inner.calculateBottomPadding())
                 .fillMaxSize()
         ) {
-                      when {
+            when {
                 selected == 0 && openIdx == 1 -> SaveScreen(
                     done = done,
                     todayKey = todayKey,
@@ -286,6 +287,12 @@ private fun PlaceholderScreen(name: String) {
 fun ProfileScreen(name: String, email: String, onLogout: () -> Unit) {
     var showConfirm by rememberSaveable { mutableStateOf(false) }
     val initial = name.trim().firstOrNull()?.uppercase() ?: "?"
+    val context = LocalContext.current
+    val version = remember {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: "?"
+    }
 
     Column(
         modifier = Modifier
@@ -333,7 +340,7 @@ fun ProfileScreen(name: String, email: String, onLogout: () -> Unit) {
             Text("Keluar", fontWeight = FontWeight.Bold, color = LogoutRed)
         }
         Spacer(Modifier.height(12.dp))
-        Text("Level Up · Versi 1.0", fontSize = 12.sp, color = LuTextGray)
+        Text("Level Up · Versi $version", fontSize = 12.sp, color = LuTextGray)
     }
 
     if (showConfirm) {
@@ -611,7 +618,6 @@ private fun QuickTile(
     }
 }
 
-// Kartu ringkasan per fitur di Beranda: hanya progres, tanpa centang. Ketuk untuk membuka fiturnya.
 @Composable
 private fun ModuleSummaryCard(
     module: HabitModule,
@@ -676,7 +682,6 @@ private fun dayLabel(key: String, todayKey: String): String {
     return SimpleDateFormat("EEE, d MMM", Locale.forLanguageTag("id-ID")).format(date)
 }
 
-// Satu baris riwayat: tanggal + hasil centang di tiap fitur pada hari itu.
 @Composable
 private fun HistoryRow(dayKey: String, todayKey: String, habits: List<Habit>, doneThatDay: Set<String>) {
     Card(
@@ -712,7 +717,7 @@ private fun HistoryRow(dayKey: String, todayKey: String, habits: List<Habit>, do
     }
 }
 
-// ---------------------------------------------------------------- LAYAR FITUR (tempat centang)
+// ---------------------------------------------------------------- LAYAR FITUR (Up Live dan Up Task, sementara)
 
 @Composable
 private fun ModuleScreen(
@@ -728,7 +733,7 @@ private fun ModuleScreen(
     val fg = moduleColors(module).second
     val hint = when (module) {
         HabitModule.HEALTH -> "Pengatur jam tidur dan catatan makan akan menyusul di sini."
-        HabitModule.SANITATION -> "Daftar perangkat elektronik milikmu sendiri akan menyusul di sini."
+        HabitModule.SANITATION -> "Daftar perangkat elektronik milikmu sendiri ada di layar Up Save."
         HabitModule.EDUCATION -> "Timer Pomodoro dan daftar tugas akan menyusul di sini."
     }
 
