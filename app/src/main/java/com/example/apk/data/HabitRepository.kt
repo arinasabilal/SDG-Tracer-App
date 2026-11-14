@@ -94,6 +94,22 @@ object HabitRepository {
         }
     }
 
+        // Pantau riwayat beberapa hari terakhir: tanggal -> id kebiasaan yang dicentang.
+    fun observeHistory(limit: Long, onChange: (Map<String, Set<String>>) -> Unit): ListenerRegistration? {
+        val col = userDoc()?.collection("days") ?: return null
+        return col.orderBy(FieldPath.documentId(), Query.Direction.DESCENDING)
+            .limit(limit)
+            .addSnapshotListener { snap, _ ->
+                if (snap == null) return@addSnapshotListener
+                val map = LinkedHashMap<String, Set<String>>()
+                snap.documents.forEach { d ->
+                    map[d.id] = (d.get("done") as? List<*>)
+                        ?.filterIsInstance<String>()?.toSet() ?: emptySet()
+                }
+                onChange(map)
+            }
+    }
+    
     // Centang atau batalkan satu kebiasaan pada tanggal tertentu.
     fun setDone(dateKey: String, habitId: String, done: Boolean) {
         val ref = userDoc()?.collection("days")?.document(dateKey) ?: return
