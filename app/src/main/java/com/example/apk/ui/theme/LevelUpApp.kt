@@ -1,5 +1,6 @@
 // LOKASI DI GITHUB (TIMPA file lama): app/src/main/java/com/example/apk/ui/LevelUpApp.kt
-// Pengatur layar utama. Beranda = ringkasan + riwayat. Centang ada di layar tiap fitur.
+// Pengatur layar utama. Beranda = ringkasan + riwayat. Fitur dibuka dari tab Jelajah.
+// Perubahan tahap ini: navigasi (Up Save di bawah tab Jelajah), layar Jelajah, gaya dialog Keluar.
 package com.example.apk.ui
 
 import androidx.activity.compose.BackHandler
@@ -33,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.DateRange
@@ -54,6 +56,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -96,6 +99,7 @@ import com.example.apk.ui.theme.LuTeal
 import com.example.apk.ui.theme.LuTextDark
 import com.example.apk.ui.theme.LuTextGray
 import com.example.apk.ui.theme.LuTrack
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -142,6 +146,9 @@ fun LevelUpApp() {
 private data class NavTab(val label: String, val icon: ImageVector)
 
 // Indeks layar fitur: 0 = Up Live (Kesehatan), 1 = Up Save (Sanitasi), 2 = Up Task (Pendidikan), 3 = Manual Book.
+// Tab: 0 Beranda, 1 Jelajah, 2 Progres, 3 Profil.
+// Up Live / Up Save / Up Task dibuka di bawah tab Jelajah (tab Jelajah menyala). Kalau dibuka dari
+// Beranda, tombol Kembali membawamu kembali ke Beranda. Manual Book tetap di bawah Beranda.
 @Composable
 fun MainShell(onLogout: () -> Unit = {}) {
     val tabs = listOf(
@@ -152,18 +159,35 @@ fun MainShell(onLogout: () -> Unit = {}) {
     )
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var openIdx by rememberSaveable { mutableIntStateOf(-1) }
+    var cameFromHome by rememberSaveable { mutableStateOf(false) }
     val userName = remember { AuthManager.displayName }
     val userEmail = remember { AuthManager.email }
 
-    val todayKey = remember { HabitRepository.todayKey() }
+    // Tanggal hari ini dicek ulang tiap 30 detik. Setelah lewat tengah malam, key berganti,
+    // pendengar data dipasang ulang untuk tanggal baru, dan centang hari baru mulai kosong.
+    var todayKey by remember { mutableStateOf(HabitRepository.todayKey()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000)
+            val now = HabitRepository.todayKey()
+            if (now != todayKey) todayKey = now
+        }
+    }
+
     var habits by remember { mutableStateOf<List<Habit>>(emptyList()) }
     var done by remember { mutableStateOf<Set<String>>(emptySet()) }
     var history by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
+    var seeded by remember { mutableStateOf(false) }
 
-    DisposableEffect(Unit) {
-        HabitRepository.seedDefaultsIfEmpty()
+    DisposableEffect(todayKey) {
+        val key = todayKey
+        if (!seeded) {
+            HabitRepository.seedDefaultsIfEmpty()
+            seeded = true
+        }
+        done = emptySet()
         val l1 = HabitRepository.observeHabits { habits = it }
-        val l2 = HabitRepository.observeDone(todayKey) { done = it }
+        val l2 = HabitRepository.observeDone(key) { done = it }
         val l3 = HabitRepository.observeHistory(7) { history = it }
         onDispose {
             l1?.remove()
@@ -172,7 +196,25 @@ fun MainShell(onLogout: () -> Unit = {}) {
         }
     }
 
-    BackHandler(enabled = openIdx >= 0) { openIdx = -1 }
+    fun openModule(index: Int, fromHome: Boolean) {
+        if (index == 3) {
+            openIdx = 3
+        } else {
+            selected = 1
+            openIdx = index
+            cameFromHome = fromHome
+        }
+    }
+
+    fun closeModule() {
+        openIdx = -1
+        if (cameFromHome) {
+            selected = 0
+            cameFromHome = false
+        }
+    }
+
+    BackHandler(enabled = openIdx >= 0) { closeModule() }
 
     Scaffold(
         containerColor = LuBackground,
@@ -180,6 +222,7 @@ fun MainShell(onLogout: () -> Unit = {}) {
             BottomBar(tabs, selected) {
                 selected = it
                 openIdx = -1
+                cameFromHome = false
             }
         }
     ) { inner ->
@@ -189,26 +232,31 @@ fun MainShell(onLogout: () -> Unit = {}) {
                 .fillMaxSize()
         ) {
             when {
-                selected == 0 && openIdx == 1 -> SaveScreen(
+                selected == 0 && openIdx == 3 -> ManualBookScreen(onBack = { closeModule() })
+                selected == 1 && openIdx == 1 -> SaveScreen(
                     done = done,
                     todayKey = todayKey,
-                    onBack = { openIdx = -1 }
+                    onBack = { closeModule() }
                 )
-                selected == 0 && openIdx in 0..2 -> ModuleScreen(
+                selected == 1 && openIdx in 0..2 -> ModuleScreen(
                     module = HabitModule.entries[openIdx],
                     habits = habits,
                     done = done,
-                    onBack = { openIdx = -1 },
+                    onBack = { closeModule() },
                     onToggle = { id, value -> HabitRepository.setDone(todayKey, id, value) }
                 )
-                selected == 0 && openIdx == 3 -> ManualBookScreen(onBack = { openIdx = -1 })
+                selected == 1 -> ExploreScreen(
+                    habits = habits,
+                    done = done,
+                    onOpen = { openModule(it, fromHome = false) }
+                )
                 selected == 0 -> HomeScreen(
                     userName = userName,
                     habits = habits,
                     done = done,
                     history = history,
                     todayKey = todayKey,
-                    onOpen = { openIdx = it }
+                    onOpen = { openModule(it, fromHome = true) }
                 )
                 selected == 3 -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
                     ProfileScreen(userName, userEmail, onLogout)
@@ -346,6 +394,9 @@ fun ProfileScreen(name: String, email: String, onLogout: () -> Unit) {
     if (showConfirm) {
         AlertDialog(
             onDismissRequest = { showConfirm = false },
+            containerColor = LuSurface,
+            titleContentColor = LuTextDark,
+            textContentColor = LuTextGray,
             title = { Text("Keluar dari akun?") },
             text = { Text("Kamu perlu masuk lagi untuk memakai Level Up.") },
             confirmButton = {
@@ -353,12 +404,12 @@ fun ProfileScreen(name: String, email: String, onLogout: () -> Unit) {
                     showConfirm = false
                     onLogout()
                 }) {
-                    Text("Keluar", color = LogoutRed)
+                    Text("Keluar", color = LogoutRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirm = false }) {
-                    Text("Batal")
+                    Text("Batal", color = LuTextGray, fontWeight = FontWeight.SemiBold)
                 }
             }
         )
@@ -371,6 +422,12 @@ private fun moduleName(m: HabitModule) = when (m) {
     HabitModule.HEALTH -> "Up Live"
     HabitModule.SANITATION -> "Up Save"
     HabitModule.EDUCATION -> "Up Task"
+}
+
+private fun moduleBlurb(m: HabitModule) = when (m) {
+    HabitModule.HEALTH -> "Minum air putih, jam tidur, aktivitas fisik"
+    HabitModule.SANITATION -> "Matikan perangkat sebelum berangkat dan tidur"
+    HabitModule.EDUCATION -> "Sesi belajar, mode baca, mode upgrade"
 }
 
 private fun moduleColors(m: HabitModule): Pair<Color, Color> = when (m) {
@@ -393,6 +450,87 @@ private fun ModuleIcon(module: HabitModule, boxSize: Dp) {
             HabitModule.HEALTH -> Icon(Icons.Default.Favorite, contentDescription = null, tint = fg)
             HabitModule.SANITATION -> Text("⚡", fontSize = 20.sp)
             HabitModule.EDUCATION -> Icon(Icons.Default.Create, contentDescription = null, tint = fg)
+        }
+    }
+}
+
+// ---------------------------------------------------------------- JELAJAH
+
+// Layar Jelajah: pintu masuk ke tiga fitur (urutan sesuai desain: Up Live, Up Task, Up Save).
+@Composable
+private fun ExploreScreen(
+    habits: List<Habit>,
+    done: Set<String>,
+    onOpen: (Int) -> Unit
+) {
+    val order = listOf(HabitModule.HEALTH, HabitModule.EDUCATION, HabitModule.SANITATION)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Text("Jelajah", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
+        Spacer(Modifier.height(4.dp))
+        Text("Mau mulai dari mana?", fontSize = 14.sp, color = LuTextGray)
+        Spacer(Modifier.height(20.dp))
+        order.forEach { module ->
+            val items = habits.filter { it.module == module }
+            ExploreCard(module, items, done) { onOpen(module.ordinal) }
+            Spacer(Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun ExploreCard(
+    module: HabitModule,
+    items: List<Habit>,
+    done: Set<String>,
+    onClick: () -> Unit
+) {
+    val fg = moduleColors(module).second
+    val doneCount = items.count { it.id in done }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = LuSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ModuleIcon(module, 52.dp)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "${moduleName(module)} · ${module.label}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = LuTextDark
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(moduleBlurb(module), fontSize = 12.sp, color = LuTextGray)
+                if (items.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "$doneCount/${items.size} selesai hari ini",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = fg
+                    )
+                }
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = LuTextGray
+            )
         }
     }
 }
@@ -489,7 +627,7 @@ fun HomeScreen(
                     Spacer(Modifier.height(10.dp))
                 }
             }
-            
+
             Spacer(Modifier.height(12.dp))
         }
     }
