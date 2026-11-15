@@ -1,5 +1,6 @@
 // LOKASI: app/src/main/java/com/example/apk/ui/SaveScreen.kt (TIMPA)
 // Layar Up Save: periode tracker, daftar perangkat, checklist sebelum berangkat / sebelum tidur.
+// Perubahan tahap ini HANYA tampilan. Logika data (Repository, centang, reset harian) tidak diubah.
 package com.example.apk.ui
 
 import androidx.compose.animation.animateColorAsState
@@ -44,7 +45,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,13 +54,11 @@ import com.example.apk.data.DeviceRepository
 import com.example.apk.data.HabitRepository
 import com.example.apk.data.TrackerPlan
 import com.example.apk.ui.theme.LuBackground
-import com.example.apk.ui.theme.LuBorder
 import com.example.apk.ui.theme.LuSaveBg
 import com.example.apk.ui.theme.LuSaveIcon
 import com.example.apk.ui.theme.LuSurface
 import com.example.apk.ui.theme.LuTextDark
 import com.example.apk.ui.theme.LuTextGray
-import com.example.apk.ui.theme.LuTrack
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -71,6 +70,7 @@ private val StatusAmber = Color(0xFFB45309)
 private val StatusAmberBg = Color(0xFFFFF0CC)
 private val StatusGreenBg = Color(0xFFD3F0DE)
 private val RowDoneBg = Color(0xFFEAF8EF)
+private val SaveTrack = Color(0xFFD3EBDC) // jalur ring: hijau muda (sebelumnya abu-abu)
 
 private val quickPicks = listOf(
     "bulb" to "Lampu", "ac" to "AC", "fan" to "Kipas", "charger" to "Charger",
@@ -161,10 +161,20 @@ fun SaveScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
                     Spacer(Modifier.width(4.dp))
                     Column {
                         Text("Up Save", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
-                        Text("Matikan dulu, baru tenang", fontSize = 12.sp, color = LuTextGray)
+                        // Subjudul dibuat lebih gelap supaya terbaca di atas gradasi hijau.
+                        Text(
+                            "Matikan dulu, baru tenang",
+                            fontSize = 13.sp,
+                            color = LuTextDark.copy(alpha = 0.72f)
+                        )
                     }
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(10.dp))
+                // Periode tracker: chip kecil (menggantikan kartu besar). 52.dp = sejajar dengan judul.
+                Box(Modifier.padding(start = 52.dp)) {
+                    PeriodChip(plan, todayKey) { showPlan = true }
+                }
+                Spacer(Modifier.height(14.dp))
                 ModeSwitch(mode) { mode = it }
                 Spacer(Modifier.height(14.dp))
                 SaveProgressCard(mode, checkedCount, total, progress)
@@ -172,23 +182,25 @@ fun SaveScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
         }
 
         Column(Modifier.padding(horizontal = 20.dp)) {
-            Spacer(Modifier.height(16.dp))
-            PeriodCard(plan, todayKey) { showPlan = true }
-
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(20.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Perangkat kamu", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
-                Box(
+                // Tombol Tambah menggantikan badge "N perangkat" dan tombol besar di bawah daftar.
+                Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(LuSaveBg)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .background(LuSaveIcon)
+                        .clickable { showAdd = true }
+                        .padding(start = 10.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("$total perangkat", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = LuSaveIcon)
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Tambah", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -207,24 +219,7 @@ fun SaveScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
                 Spacer(Modifier.height(10.dp))
             }
 
-            Spacer(Modifier.height(8.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Brush.horizontalGradient(listOf(Color(0xFF3AAE72), LuSaveIcon)))
-                    .clickable { showAdd = true },
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Tambah perangkat", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-            }
-
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.Top) {
                 Icon(
                     Icons.Default.Notifications,
@@ -285,6 +280,9 @@ fun SaveScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
     toDelete?.let { d ->
         AlertDialog(
             onDismissRequest = { toDelete = null },
+            containerColor = LuSurface,
+            titleContentColor = LuTextDark,
+            textContentColor = LuTextGray,
             title = { Text("Hapus ${d.name}?") },
             text = { Text("Perangkat ini dihapus dari daftar centangmu.") },
             confirmButton = {
@@ -294,12 +292,10 @@ fun SaveScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
                     syncFlags(remaining, leave, sleep)
                     toDelete = null
                 }) {
-                    Text("Hapus", color = SaveRed)
+                    Text("Hapus", color = SaveRed, fontWeight = FontWeight.Bold)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { toDelete = null }) { Text("Batal") }
-            }
+            dismissButton = { SaveCancelButton { toDelete = null } }
         )
     }
 }
@@ -371,7 +367,7 @@ private fun SaveProgressCard(mode: Int, checked: Int, total: Int, progress: Floa
                     val inset = stroke / 2
                     val arcSize = Size(size.width - stroke, size.height - stroke)
                     drawArc(
-                        color = LuTrack,
+                        color = SaveTrack,
                         startAngle = -90f,
                         sweepAngle = 360f,
                         useCenter = false,
@@ -403,71 +399,38 @@ private fun SaveProgressCard(mode: Int, checked: Int, total: Int, progress: Floa
     }
 }
 
+// Chip kecil di header. Menggantikan kartu "Periode tracker" yang besar.
 @Composable
-private fun PeriodCard(plan: TrackerPlan?, todayKey: String, onEdit: () -> Unit) {
+private fun PeriodChip(plan: TrackerPlan?, todayKey: String, onClick: () -> Unit) {
     val total = plan?.durationDays ?: 0
     val dayNo = if (plan == null) 0 else (daysBetween(plan.startDate, todayKey) + 1).coerceAtLeast(1)
     val finished = plan != null && total > 0 && dayNo > total
-    val (title, sub) = periodTexts(plan, dayNo)
-    val progress by animateFloatAsState(
-        if (plan != null && total > 0) dayNo.coerceAtMost(total).toFloat() / total else 0f,
-        tween(500),
-        label = "period"
-    )
-    val action = when {
-        plan == null -> "Atur"
-        finished -> "Mulai baru"
-        else -> "Ubah"
-    }
-    val blue = Color(0xFF3B82F6)
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = LuSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(15.dp))
-                        .background(Brush.linearGradient(listOf(Color(0xFF8BD3FF), blue))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.DateRange, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Periode tracker", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = LuTextGray)
-                    Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
-                    Text(sub, fontSize = 12.sp, color = LuTextGray)
-                }
-                Spacer(Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(LuSaveBg)
-                        .clickable(onClick = onEdit)
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                ) {
-                    Text(action, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = LuSaveIcon)
-                }
-            }
-            if (plan != null && total > 0) {
-                Spacer(Modifier.height(12.dp))
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = if (finished) LuSaveIcon else blue,
-                    trackColor = LuTrack
-                )
-            }
+    val text = when {
+        plan == null -> "Atur periode"
+        total == 0 -> "Tanpa batas · hari ke-$dayNo"
+        finished -> "Periode selesai · Mulai baru"
+        else -> {
+            val left = total - dayNo
+            if (left == 0) "Periode: $total hari · hari terakhir"
+            else "Periode: $total hari · sisa $left hari"
         }
+    }
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color.White.copy(alpha = 0.85f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Default.DateRange,
+            contentDescription = null,
+            tint = LuSaveIcon,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = LuTextDark)
     }
 }
 
@@ -504,6 +467,7 @@ private fun DeviceBadge(icon: DeviceIcon, size: Dp, dimmed: Boolean = false, sho
     }
 }
 
+// Status: chip hijau bercentang kalau sudah mati, chip kuning bertitik kalau masih menyala.
 @Composable
 private fun StatusPill(off: Boolean) {
     val color = if (off) LuSaveIcon else StatusAmber
@@ -514,37 +478,64 @@ private fun StatusPill(off: Boolean) {
             .padding(horizontal = 8.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Spacer(Modifier.width(5.dp))
+        if (off) {
+            Icon(Icons.Default.Check, contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
+        } else {
+            Box(
+                Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+        Spacer(Modifier.width(if (off) 4.dp else 5.dp))
         Text(
             if (off) "Sudah mati" else "Masih menyala",
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = color
+            color = color,
+            maxLines = 1
         )
     }
 }
 
+// Perangkat yang belum mati: tombol berlabel jelas.
 @Composable
-private fun PowerButton(off: Boolean) {
-    val fill by animateColorAsState(if (off) LuSaveIcon else Color.Transparent, label = "power")
+private fun MarkOffButton(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .border(1.5.dp, LuSaveIcon, RoundedCornerShape(50))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Default.PowerSettingsNew,
+            contentDescription = null,
+            tint = LuSaveIcon,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text("Tandai mati", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = LuSaveIcon, maxLines = 1)
+    }
+}
+
+// Perangkat yang sudah mati: lingkaran centang. Menekannya membatalkan.
+@Composable
+private fun UndoButton(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(38.dp)
             .clip(CircleShape)
-            .background(fill)
-            .border(2.dp, if (off) LuSaveIcon else LuBorder, CircleShape),
+            .background(LuSaveIcon)
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = if (off) Icons.Default.Check else Icons.Default.PowerSettingsNew,
-            contentDescription = null,
-            tint = if (off) Color.White else LuTextGray,
+            Icons.Default.Check,
+            contentDescription = "Batalkan tanda mati",
+            tint = Color.White,
             modifier = Modifier.size(20.dp)
         )
     }
@@ -575,22 +566,25 @@ private fun DeviceRow(
                 .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            DeviceBadge(icon, 52.dp, dimmed = checked, showCheck = checked)
-            Spacer(Modifier.width(12.dp))
+            DeviceBadge(icon, 48.dp, dimmed = checked)
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
+                // Nama tidak lagi dicoret: status cukup dibaca dari chip dan tombol.
                 Text(
                     device.name,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (checked) LuTextGray else LuTextDark,
-                    textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None
+                    color = LuTextDark,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
                 StatusPill(checked)
             }
-            PowerButton(checked)
+            Spacer(Modifier.width(6.dp))
+            if (checked) UndoButton(onToggle) else MarkOffButton(onToggle)
             Box {
-                IconButton(onClick = { menu = true }) {
+                IconButton(onClick = { menu = true }, modifier = Modifier.size(40.dp)) {
                     Icon(
                         Icons.Default.MoreVert,
                         contentDescription = "Menu ${device.name}",
@@ -661,6 +655,32 @@ private fun EmptyState(onStarter: () -> Unit) {
 // ---------------------------------------------------------------- DIALOG
 
 @Composable
+private fun saveFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = LuSaveIcon,
+    focusedLabelColor = LuSaveIcon,
+    cursorColor = LuSaveIcon
+)
+
+@Composable
+private fun SaveConfirmButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = LuSaveIcon)
+    ) {
+        Text(text, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SaveCancelButton(onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Text("Batal", color = LuTextGray, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 private fun DeviceDialog(
     title: String,
     initialName: String = "",
@@ -673,6 +693,9 @@ private fun DeviceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = LuSurface,
+        titleContentColor = LuTextDark,
+        textContentColor = LuTextGray,
         title = { Text(title) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -718,6 +741,7 @@ private fun DeviceDialog(
                     label = { Text("Nama perangkat") },
                     placeholder = { Text("misal: Lampu belajar") },
                     singleLine = true,
+                    colors = saveFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -766,16 +790,11 @@ private fun DeviceDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { if (name.isNotBlank()) onSave(name, iconKey) },
-                enabled = name.isNotBlank()
-            ) {
-                Text("Simpan")
+            SaveConfirmButton("Simpan", enabled = name.isNotBlank()) {
+                if (name.isNotBlank()) onSave(name, iconKey)
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Batal") }
-        }
+        dismissButton = { SaveCancelButton(onDismiss) }
     )
 }
 
@@ -788,7 +807,8 @@ private fun PlanDialog(
 ) {
     val finishedNow = plan != null && plan.durationDays > 0 &&
         daysBetween(plan.startDate, todayKey) + 1 > plan.durationDays
-    var selected by rememberSaveable { mutableIntStateOf(plan?.durationDays ?: 30) }
+    // -1 = belum ada pilihan. Kalau periode belum pernah diatur, tidak ada chip yang terpilih.
+    var selected by rememberSaveable { mutableIntStateOf(plan?.durationDays ?: -1) }
     var custom by rememberSaveable {
         mutableStateOf(
             plan?.durationDays?.takeIf { it > 0 && it !in planOptions }?.toString() ?: ""
@@ -796,16 +816,29 @@ private fun PlanDialog(
     }
     var restart by rememberSaveable { mutableStateOf(plan == null || finishedNow) }
 
-    val days = custom.toIntOrNull()?.coerceIn(1, 365) ?: selected
+    val customValue = custom.toIntOrNull()
+    val customError = custom.isNotBlank() && (customValue == null || customValue !in 1..365)
+    // null = belum valid / belum memilih -> tombol Simpan nonaktif
+    val days: Int? = when {
+        custom.isNotBlank() -> if (customError) null else customValue
+        selected >= 0 -> selected
+        else -> null
+    }
     val startKey = if (plan == null || restart) todayKey else plan.startDate
-    val endText = if (days == 0) {
+    val chosen = days
+    val endText = if (chosen == null) {
+        "Pilih lama periode dulu"
+    } else if (chosen == 0) {
         "Tanpa batas waktu"
     } else {
-        "Selesai pada ${prettyDate(addDaysKey(startKey, days - 1))}"
+        "Selesai pada ${prettyDate(addDaysKey(startKey, chosen - 1))}"
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = LuSurface,
+        titleContentColor = LuTextDark,
+        textContentColor = LuTextGray,
         title = { Text("Atur periode tracker") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -817,6 +850,7 @@ private fun PlanDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         rowItems.forEach { d ->
+                            // Chip tidak terpilih saat kamu mengetik jumlah hari sendiri.
                             val active = custom.isBlank() && selected == d
                             Box(
                                 modifier = Modifier
@@ -847,9 +881,14 @@ private fun PlanDialog(
                     value = custom,
                     onValueChange = { custom = it.filter { c -> c.isDigit() }.take(3) },
                     label = { Text("Atau jumlah hari sendiri") },
-                    placeholder = { Text("misal: 45") },
+                    placeholder = { Text("1–365") },
                     singleLine = true,
+                    isError = customError,
+                    supportingText = if (customError) {
+                        { Text("Masukkan angka 1 sampai 365") }
+                    } else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = saveFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (plan != null) {
@@ -861,19 +900,28 @@ private fun PlanDialog(
                             color = LuTextDark,
                             modifier = Modifier.weight(1f)
                         )
-                        Switch(checked = restart, onCheckedChange = { restart = it })
+                        Switch(
+                            checked = restart,
+                            onCheckedChange = { restart = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = LuSaveIcon)
+                        )
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                Text(endText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = LuSaveIcon)
+                Text(
+                    endText,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (chosen == null) LuTextGray else LuSaveIcon
+                )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(days, startKey) }) { Text("Simpan") }
+            SaveConfirmButton("Simpan", enabled = days != null) {
+                days?.let { onSave(it, startKey) }
+            }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Batal") }
-        }
+        dismissButton = { SaveCancelButton(onDismiss) }
     )
 }
 
@@ -899,20 +947,4 @@ private fun addDaysKey(key: String, days: Int): String {
 private fun prettyDate(key: String): String {
     val t = parseKey(key) ?: return key
     return SimpleDateFormat("d MMM yyyy", Locale.forLanguageTag("id-ID")).format(Date(t))
-}
-
-private fun periodTexts(plan: TrackerPlan?, dayNo: Int): Pair<String, String> {
-    if (plan == null) {
-        return "Atur periode tracker" to "Tentukan berapa hari kamu mau menjaga kebiasaan ini."
-    }
-    val total = plan.durationDays
-    if (total == 0) {
-        return "Hari ke-$dayNo" to "Tanpa batas waktu · mulai ${prettyDate(plan.startDate)}"
-    }
-    if (dayNo > total) {
-        return "Periode selesai" to "$total hari sudah terlewati. Mulai periode baru?"
-    }
-    val left = total - dayNo
-    val head = if (left == 0) "Hari terakhir" else "Sisa $left hari"
-    return "Hari ke-$dayNo dari $total" to "$head · selesai ${prettyDate(addDaysKey(plan.startDate, total - 1))}"
 }
