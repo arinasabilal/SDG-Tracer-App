@@ -189,7 +189,7 @@ fun MainShell(onLogout: () -> Unit = {}) {
         done = emptySet()
         val l1 = HabitRepository.observeHabits { habits = it }
         val l2 = HabitRepository.observeDone(key) { done = it }
-        val l3 = HabitRepository.observeHistory(7) { history = it }
+        val l3 = HabitRepository.observeHistory(PROGRESS_LOOKBACK_DAYS.toLong()) { history = it }
         onDispose {
             l1?.remove()
             l2?.remove()
@@ -268,6 +268,12 @@ fun MainShell(onLogout: () -> Unit = {}) {
                     history = history,
                     todayKey = todayKey,
                     onOpen = { openModule(it, fromHome = true) }
+                )
+                selected == 2 -> ProgressScreen(
+                    habits = habits,
+                    history = history,
+                    done = done,
+                    todayKey = todayKey
                 )
                 selected == 3 -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
                     ProfileScreen(userName, userEmail, onLogout)
