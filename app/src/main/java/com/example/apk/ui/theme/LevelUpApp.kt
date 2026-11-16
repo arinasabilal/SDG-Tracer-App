@@ -145,7 +145,8 @@ fun LevelUpApp() {
 
 private data class NavTab(val label: String, val icon: ImageVector)
 
-// Indeks layar fitur: 0 = Up Live (Kesehatan), 1 = Up Save (Sanitasi), 2 = Up Task (Pendidikan), 3 = Manual Book.
+// Indeks layar fitur: 0 = Up Live (Kesehatan), 1 = Up Save (Sanitasi), 2 = Up Task (Pendidikan), 3 = Manual Book,
+// 4 = Minum Air Putih (dibuka dari Up Live; tombol Kembali membawa ke Up Live).
 // Tab: 0 Beranda, 1 Jelajah, 2 Progres, 3 Profil.
 // Up Live / Up Save / Up Task dibuka di bawah tab Jelajah (tab Jelajah menyala). Kalau dibuka dari
 // Beranda, tombol Kembali membawamu kembali ke Beranda. Manual Book tetap di bawah Beranda.
@@ -207,6 +208,11 @@ fun MainShell(onLogout: () -> Unit = {}) {
     }
 
     fun closeModule() {
+        if (openIdx == 4) {
+            // Dari Minum Air Putih kembali ke layar Up Live.
+            openIdx = 0
+            return
+        }
         openIdx = -1
         if (cameFromHome) {
             selected = 0
@@ -238,12 +244,17 @@ fun MainShell(onLogout: () -> Unit = {}) {
                     todayKey = todayKey,
                     onBack = { closeModule() }
                 )
+                selected == 1 && openIdx == 4 -> WaterScreen(
+                    todayKey = todayKey,
+                    onBack = { closeModule() }
+                )
                 selected == 1 && openIdx in 0..2 -> ModuleScreen(
                     module = HabitModule.entries[openIdx],
                     habits = habits,
                     done = done,
                     onBack = { closeModule() },
-                    onToggle = { id, value -> HabitRepository.setDone(todayKey, id, value) }
+                    onToggle = { id, value -> HabitRepository.setDone(todayKey, id, value) },
+                    onOpenWater = { openIdx = 4 }
                 )
                 selected == 1 -> ExploreScreen(
                     habits = habits,
@@ -848,14 +859,15 @@ private fun ModuleScreen(
     habits: List<Habit>,
     done: Set<String>,
     onBack: () -> Unit,
-    onToggle: (String, Boolean) -> Unit
+    onToggle: (String, Boolean) -> Unit,
+    onOpenWater: () -> Unit = {}
 ) {
     val items = habits.filter { it.module == module }
     val doneCount = items.count { it.id in done }
     val progress = if (items.isEmpty()) 0f else doneCount.toFloat() / items.size
     val fg = moduleColors(module).second
     val hint = when (module) {
-        HabitModule.HEALTH -> "Pengatur jam tidur dan catatan makan akan menyusul di sini."
+        HabitModule.HEALTH -> "Minum air dicatat di layar Minum Air Putih. Jam tidur dan aktivitas fisik menyusul."
         HabitModule.SANITATION -> "Daftar perangkat elektronik milikmu sendiri ada di layar Up Save."
         HabitModule.EDUCATION -> "Timer Pomodoro dan daftar tugas akan menyusul di sini."
     }
@@ -926,22 +938,36 @@ private fun ModuleScreen(
                 }
                 items.forEach { h ->
                     val checked = h.id in done
+                    // "water" tidak dicentang manual: selesai otomatis saat target gelas tercapai.
+                    val isWater = h.id == "water"
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .clickable { onToggle(h.id, !checked) }
+                            .clickable { if (isWater) onOpenWater() else onToggle(h.id, !checked) }
                             .padding(horizontal = 6.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         CheckCircle(checked, fg)
                         Spacer(Modifier.width(12.dp))
-                        Text(
-                            h.title,
-                            fontSize = 15.sp,
-                            color = if (checked) LuTextGray else LuTextDark,
-                            textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None
-                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                h.title,
+                                fontSize = 15.sp,
+                                color = if (checked) LuTextGray else LuTextDark,
+                                textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None
+                            )
+                            if (isWater) {
+                                Text("Ketuk untuk mencatat gelas", fontSize = 11.sp, color = LuTextGray)
+                            }
+                        }
+                        if (isWater) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = LuTextGray
+                            )
+                        }
                     }
                 }
             }
