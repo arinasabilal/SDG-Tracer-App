@@ -248,6 +248,12 @@ fun MainShell(onLogout: () -> Unit = {}) {
                     todayKey = todayKey,
                     onBack = { closeModule() }
                 )
+                selected == 1 && openIdx == 0 -> LiveScreen(
+                    done = done,
+                    todayKey = todayKey,
+                    onOpenWater = { openIdx = 4 },
+                    onBack = { closeModule() }
+                )
                 selected == 1 && openIdx in 0..2 -> ModuleScreen(
                     module = HabitModule.entries[openIdx],
                     habits = habits,
