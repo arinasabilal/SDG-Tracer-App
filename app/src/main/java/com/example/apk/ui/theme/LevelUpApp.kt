@@ -77,42 +77,7 @@ private data class LiveMeal(
     val to: Color
 )
 
-private val liveMeals = listOf(
-    LiveMeal("breakfast", "Sarapan", "Pagi · 06.00–09.00", Icons.Default.BreakfastDining, Color(0xFFFDE68A), Color(0xFFD97706)),
-    LiveMeal("lunch", "Makan siang", "Siang · 11.30–14.00", Icons.Default.LunchDining, Color(0xFFFDBA74), Color(0xFFEA580C)),
-    LiveMeal("dinner", "Makan malam", "Malam · 17.30–20.00", Icons.Default.DinnerDining, Color(0xFFFCA5A5), Color(0xFFDC2626))
-)
-
 @Composable
-fun LiveScreen(
-    done: Set<String>,
-    todayKey: String,
-    onOpenWater: () -> Unit,
-    onBack: () -> Unit
-) {
-    var settings by remember { mutableStateOf(LiveSettings.DEFAULT) }
-    var meals by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var waterCount by remember { mutableIntStateOf(0) }
-    var waterPlan by remember { mutableStateOf<WaterPlan?>(null) }
-    var picker by remember { mutableIntStateOf(0) } // 0 = tertutup, 1 = waktu tidur, 2 = waktu bangun
-
-    val scroll = rememberScrollState()
-    val scrolled by remember { derivedStateOf { scroll.value > 40 } }
-    val scrimAlpha by animateFloatAsState(if (scrolled) 0.96f else 0f, tween(150), label = "liveScrim")
-
-    DisposableEffect(todayKey) {
-        val l1 = LiveRepository.observeSettings { settings = it }
-        val l2 = LiveRepository.observeMeals(todayKey) { meals = it }
-        val l3 = WaterRepository.observeWater(todayKey) { waterCount = it }
-        val l4 = WaterRepository.observePlan { waterPlan = it }
-        onDispose {
-            l1?.remove()
-            l2?.remove()
-            l3?.remove()
-            l4?.remove()
-        }
-    }
-
     fun updateSettings(newSettings: LiveSettings) {
         settings = newSettings
         LiveRepository.saveSettings(newSettings)
