@@ -1,5 +1,5 @@
-// LOKASI: app/src/main/java/com/example/apk/ui/LiveScreen.kt (file BARU)
-// Layar Up Live: jam tidur, minum air (ringkasan), makan teratur.
+// LOKASI: app/src/main/java/com/example/apk/ui/LiveScreen.kt (TIMPA)
+// Layar Up Live: ritme tidur, hidrasi (ringkasan), pola makan.
 package com.example.apk.ui
 
 import androidx.compose.animation.animateColorAsState
@@ -9,18 +9,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,31 +19,21 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.BreakfastDining
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Coffee
-import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.DinnerDining
+import androidx.compose.material.icons.filled.LunchDining
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.RiceBowl
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -81,13 +60,17 @@ import com.example.apk.ui.theme.LuTextDark
 import com.example.apk.ui.theme.LuTextGray
 import com.example.apk.ui.theme.LuTrack
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private val LiveIndigo = Color(0xFF4F46E5)
 private val LiveIndigoFrom = Color(0xFFA5B4FC)
+private val LiveIndigoSoft = Color(0xFFE8EAFE)
 private val LiveAmber = Color(0xFFB45309)
 private val LiveAmberBg = Color(0xFFFFF0CC)
 private val LiveGreen = Color(0xFF27804D)
 private val LiveGreenBg = Color(0xFFD3F0DE)
+private val LiveOrange = Color(0xFFEA580C)
+private val LiveOrangeSoft = Color(0xFFFFE8D2)
 
 private data class LiveMeal(
     val key: String,
@@ -99,9 +82,9 @@ private data class LiveMeal(
 )
 
 private val liveMeals = listOf(
-    LiveMeal("breakfast", "Sarapan", "Awali hari dengan tenaga", Icons.Default.Coffee, Color(0xFFFDE68A), Color(0xFFD97706)),
-    LiveMeal("lunch", "Makan siang", "Isi tenaga di tengah hari", Icons.Default.RiceBowl, Color(0xFFFDBA74), Color(0xFFEA580C)),
-    LiveMeal("dinner", "Makan malam", "Jangan terlalu larut", Icons.Default.Kitchen, Color(0xFFFCA5A5), Color(0xFFDC2626))
+    LiveMeal("breakfast", "Sarapan", "Awali hari dengan tenaga", Icons.Default.BreakfastDining, Color(0xFFFDE68A), Color(0xFFD97706)),
+    LiveMeal("lunch", "Makan siang", "Isi tenaga di tengah hari", Icons.Default.LunchDining, Color(0xFFFDBA74), Color(0xFFEA580C)),
+    LiveMeal("dinner", "Makan malam", "Jangan terlalu larut", Icons.Default.DinnerDining, Color(0xFFFDA4AF), Color(0xFFE11D48))
 )
 
 @Composable
@@ -115,6 +98,7 @@ fun LiveScreen(
     var meals by remember { mutableStateOf<Set<String>>(emptySet()) }
     var waterCount by remember { mutableIntStateOf(0) }
     var waterPlan by remember { mutableStateOf<WaterPlan?>(null) }
+    val scroll = rememberScrollState()
 
     DisposableEffect(todayKey) {
         val l1 = LiveRepository.observeSettings { settings = it }
@@ -154,86 +138,132 @@ fun LiveScreen(
     val doneCount = listOf(sleepOk, waterOk, mealOk).count { it }
     val waterTarget = waterPlan?.targetGlasses ?: WaterRepository.DEFAULT_TARGET
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-    ) {
-        Box(
+    Box(Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color(0xFFCFE3FF), Color(0xFFE8F2FF), LuBackground)
-                    )
-                )
+                .fillMaxSize()
+                .verticalScroll(scroll)
         ) {
-            Column(
+            Box(
                 modifier = Modifier
-                    .statusBarsPadding()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 8.dp, bottom = 16.dp)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFFCFE3FF), Color(0xFFE8F2FF), LuBackground)
+                        )
+                    )
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = LuTextDark)
+                Column(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 12.dp, bottom = 16.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LiveBackButton(onBack)
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                "KESEHATAN",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.4.sp,
+                                color = LuLiveIcon
+                            )
+                            Text("Up Live", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
+                        }
                     }
-                    Spacer(Modifier.width(4.dp))
-                    Column {
-                        Text("Up Live", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
-                        Text("Rawat ritme tubuhmu", fontSize = 12.sp, color = LuTextGray)
-                    }
+                    Spacer(Modifier.height(16.dp))
+                    LiveHeaderCard(doneCount, sleepOk, waterOk, mealOk)
                 }
+            }
+
+            Column(Modifier.padding(horizontal = 20.dp)) {
                 Spacer(Modifier.height(16.dp))
-                LiveHeaderCard(doneCount, sleepOk, waterOk, mealOk)
+                LiveSleepCard(
+                    s = settings,
+                    sleepOk = sleepOk,
+                    onChange = { updateSettings(it) },
+                    onToggleSleep = { toggleSleep() }
+                )
+
+                Spacer(Modifier.height(14.dp))
+                LiveWaterCard(waterCount, waterTarget, waterOk, onOpenWater)
+
+                Spacer(Modifier.height(14.dp))
+                LiveMealCard(meals) { toggleMeal(it) }
+
+                Spacer(Modifier.height(24.dp))
             }
         }
-
-        Column(Modifier.padding(horizontal = 20.dp)) {
-            Spacer(Modifier.height(16.dp))
-            LiveSleepCard(
-                s = settings,
-                sleepOk = sleepOk,
-                onChange = { updateSettings(it) },
-                onToggleSleep = { toggleSleep() }
-            )
-
-            Spacer(Modifier.height(14.dp))
-            LiveWaterCard(waterCount, waterTarget, waterOk, onOpenWater)
-
-            Spacer(Modifier.height(14.dp))
-            LiveMealCard(meals, ::toggleMeal)
-
-            Spacer(Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.Top) {
-                Icon(
-                    Icons.Default.Notifications,
-                    contentDescription = null,
-                    tint = LuTextGray,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "Pengingat otomatis untuk jeda layar dan jam tidur hadir di tahap berikutnya.",
-                    fontSize = 12.sp,
-                    color = LuTextGray
-                )
-            }
-            Spacer(Modifier.height(24.dp))
-        }
+        LiveStatusScrim(scroll.value, Modifier.align(Alignment.TopStart))
     }
 }
 
-// ---------------------------------------------------------------- KARTU
+// Menutup area jam dan baterai saat layar digulir, supaya isi kartu tidak tembus ke belakangnya.
+@Composable
+private fun LiveStatusScrim(scrollValue: Int, modifier: Modifier = Modifier) {
+    val alpha by animateFloatAsState(if (scrollValue > 40) 1f else 0f, tween(150), label = "liveScrim")
+    Box(
+        modifier
+            .fillMaxWidth()
+            .windowInsetsTopHeight(WindowInsets.statusBars)
+            .alpha(alpha)
+            .background(LuBackground)
+    )
+}
+
+// ---------------------------------------------------------------- KOMPONEN
+
+@Composable
+private fun LiveBackButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .shadow(3.dp, CircleShape)
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.White)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = "Kembali",
+            tint = LuTextDark,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+@Composable
+private fun LiveSectionHeader(
+    icon: ImageVector,
+    from: Color,
+    to: Color,
+    title: String,
+    subtitle: String,
+    trailing: @Composable () -> Unit = {}
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        LiveBadge(icon, from, to, 46.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
+            Text(subtitle, fontSize = 12.sp, color = LuTextGray)
+        }
+        Spacer(Modifier.width(8.dp))
+        trailing()
+    }
+}
 
 @Composable
 private fun LiveHeaderCard(doneCount: Int, sleepOk: Boolean, waterOk: Boolean, mealOk: Boolean) {
     val progress by animateFloatAsState(doneCount / 3f, tween(500), label = "liveRing")
     val message = when (doneCount) {
-        0 -> "Mulai dari satu kebiasaan kecil hari ini."
+        0 -> "Mulai dari satu kebiasaan kecil."
         1 -> "Bagus, lanjutkan ritmenya."
         2 -> "Tinggal satu lagi!"
-        else -> "Tubuhmu terawat hari ini."
+        else -> "Semua target hari ini tercapai."
     }
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -275,7 +305,7 @@ private fun LiveHeaderCard(doneCount: Int, sleepOk: Boolean, waterOk: Boolean, m
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text("Kebiasaan sehat hari ini", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = LuLiveIcon)
+                Text("Target kesehatan hari ini", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = LuLiveIcon)
                 Spacer(Modifier.height(2.dp))
                 Text(message, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
                 Spacer(Modifier.height(10.dp))
@@ -327,13 +357,13 @@ private fun LiveSleepCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                LiveBadge(Icons.Default.Bedtime, LiveIndigoFrom, LiveIndigo, 46.dp)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Jam tidur", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
-                    Text("Tidur dan bangun konsisten", fontSize = 12.sp, color = LuTextGray)
-                }
+            LiveSectionHeader(
+                icon = Icons.Default.Bedtime,
+                from = LiveIndigoFrom,
+                to = LiveIndigo,
+                title = "Ritme Tidur",
+                subtitle = "Tidur dan bangun di jam yang sama"
+            ) {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
@@ -371,14 +401,14 @@ private fun LiveSleepCard(
             Spacer(Modifier.height(10.dp))
             LiveTimeRow(
                 icon = Icons.Default.Notifications,
-                label = "Jeda layar sebelum tidur",
+                label = "Jeda layar",
                 value = "${s.windDownMinutes} menit",
                 onMinus = { onChange(s.copy(windDownMinutes = (s.windDownMinutes - 5).coerceAtLeast(0))) },
                 onPlus = { onChange(s.copy(windDownMinutes = (s.windDownMinutes + 5).coerceAtMost(120))) }
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Mulai berhenti main layar pukul ${liveFmt(s.bedMinutes - s.windDownMinutes)}",
+                "Jeda layar dimulai pukul ${liveFmt(s.bedMinutes - s.windDownMinutes)}",
                 fontSize = 12.sp,
                 color = LuTextGray
             )
@@ -406,12 +436,16 @@ private fun LiveSleepCard(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "Tidur tepat waktu semalam",
+                        "Tidur sesuai jadwal",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (sleepOk) LuTextGray else LuTextDark
                     )
-                    Text("Ketuk kalau kamu tidur dan bangun sesuai jadwal", fontSize = 11.sp, color = LuTextGray)
+                    Text(
+                        "Tandai jika semalam kamu tidur dan bangun sesuai jadwal",
+                        fontSize = 11.sp,
+                        color = LuTextGray
+                    )
                 }
             }
         }
@@ -479,13 +513,13 @@ private fun LiveTimeRow(
 private fun LiveStep(icon: ImageVector, description: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(38.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .border(1.5.dp, LuLiveIcon, CircleShape)
+            .background(LiveIndigoSoft)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, contentDescription = description, tint = LuLiveIcon, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = description, tint = LiveIndigo, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -498,37 +532,53 @@ private fun LiveWaterCard(count: Int, target: Int, ok: Boolean, onOpen: () -> Un
         colors = CardDefaults.cardColors(containerColor = LuSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onOpen)
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(18.dp)
         ) {
-            LiveBadge(Icons.Default.WaterDrop, Color(0xFF7DD3FC), Color(0xFF3B82F6), 46.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Minum air putih", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
-                Text(
-                    if (ok) "Target tercapai, $count dari $target gelas" else "$count dari $target gelas hari ini",
-                    fontSize = 12.sp,
-                    color = LuTextGray
-                )
-                Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { progress },
+            LiveSectionHeader(
+                icon = Icons.Default.WaterDrop,
+                from = Color(0xFF7DD3FC),
+                to = Color(0xFF3B82F6),
+                title = "Hidrasi",
+                subtitle = if (ok) "Target tercapai" else "Target air putih harian"
+            ) {
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = LuLiveIcon,
-                    trackColor = LuTrack
-                )
+                        .clip(RoundedCornerShape(50))
+                        .background(LuLiveBg)
+                        .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Catat", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = LuLiveIcon)
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = LuLiveIcon,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = LuTextGray
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text("$count / $target gelas", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
+                Text("${(progress * 100).roundToInt()}%", fontSize = 12.sp, color = LuTextGray)
+            }
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = LuLiveIcon,
+                trackColor = LuTrack
             )
         }
     }
@@ -543,23 +593,27 @@ private fun LiveMealCard(meals: Set<String>, onToggle: (String) -> Unit) {
         colors = CardDefaults.cardColors(containerColor = LuSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Column(Modifier.padding(18.dp)) {
+            LiveSectionHeader(
+                icon = Icons.Default.LunchDining,
+                from = Color(0xFFFDBA74),
+                to = LiveOrange,
+                title = "Pola Makan",
+                subtitle = "Tiga waktu makan teratur"
             ) {
-                Column {
-                    Text("Makan teratur", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = LuTextDark)
-                    Text("Ketuk saat kamu sudah makan", fontSize = 12.sp, color = LuTextGray)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(LiveOrangeSoft)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text("$count/3", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = LiveOrange)
                 }
-                Text("$count/3", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEA580C))
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(12.dp))
             liveMeals.forEach { meal ->
                 LiveMealRow(meal, meal.key in meals) { onToggle(meal.key) }
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
@@ -568,7 +622,7 @@ private fun LiveMealCard(meals: Set<String>, onToggle: (String) -> Unit) {
 @Composable
 private fun LiveMealRow(meal: LiveMeal, checked: Boolean, onToggle: () -> Unit) {
     val bg by animateColorAsState(
-        if (checked) Color(0xFFFFF3E3) else Color.Transparent,
+        if (checked) Color(0xFFFFF3E3) else Color(0xFFF6F8FA),
         label = "mealBg"
     )
     Row(
@@ -577,7 +631,7 @@ private fun LiveMealRow(meal: LiveMeal, checked: Boolean, onToggle: () -> Unit) 
             .clip(RoundedCornerShape(16.dp))
             .background(bg)
             .clickable(onClick = onToggle)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         LiveBadge(meal.icon, meal.from, meal.to, 42.dp)
@@ -591,11 +645,9 @@ private fun LiveMealRow(meal: LiveMeal, checked: Boolean, onToggle: () -> Unit) 
             )
             Text(if (checked) "Sudah makan" else meal.hint, fontSize = 12.sp, color = LuTextGray)
         }
-        LiveCheck(checked, meal.to)
+        LiveCheck(checked, LiveOrange)
     }
 }
-
-// ---------------------------------------------------------------- KOMPONEN KECIL
 
 @Composable
 private fun LiveBadge(icon: ImageVector, from: Color, to: Color, size: Dp) {
