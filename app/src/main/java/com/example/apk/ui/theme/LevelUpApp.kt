@@ -77,7 +77,61 @@ private data class LiveMeal(
     val to: Color
 )
 
+// ====================================================================================
+// TEMPEL blok ini MENGGANTIKAN satu baris "@Composable" yang menggantung,
+// yaitu baris tepat di atas "fun updateSettings(newSettings: LiveSettings) {".
+// Jangan hapus "fun updateSettings" dan seterusnya, itu sudah benar.
+// ====================================================================================
+
+private val liveMeals = listOf(
+    LiveMeal(
+        key = "breakfast",
+        label = "Sarapan",
+        window = "Pagi · 06.00–09.00",
+        icon = Icons.Default.BreakfastDining,
+        from = Color(0xFFFDBA74),
+        to = Color(0xFFEA580C)
+    ),
+    LiveMeal(
+        key = "lunch",
+        label = "Makan siang",
+        window = "Siang · 11.30–14.00",
+        icon = Icons.Default.LunchDining,
+        from = Color(0xFFFCD34D),
+        to = Color(0xFFD97706)
+    ),
+    LiveMeal(
+        key = "dinner",
+        label = "Makan malam",
+        window = "Malam · 18.00–20.30",
+        icon = Icons.Default.DinnerDining,
+        from = Color(0xFFFCA5A5),
+        to = Color(0xFFDC2626)
+    )
+)
+
 @Composable
+fun LiveScreen(
+    done: Set<String>,
+    todayKey: String,
+    onOpenWater: () -> Unit,
+    onBack: () -> Unit
+) {
+    // ---- 4 baris ini bergantung pada nama fungsi di folder data/ milikmu. ----
+    // ---- Kalau build bilang "Unresolved reference", samakan namanya.       ----
+    var settings by remember { mutableStateOf(LiveRepository.getSettings()) }
+    var meals by remember(todayKey) { mutableStateOf(LiveRepository.getMeals(todayKey).toSet()) }
+    val waterPlan: WaterPlan? = remember { WaterRepository.getPlan() }
+    val waterCount = remember(todayKey) { WaterRepository.getCount(todayKey) }
+    // --------------------------------------------------------------------------
+
+    var picker by remember { mutableStateOf(0) } // 0 = tertutup, 1 = waktu tidur, 2 = waktu bangun
+    val scroll = rememberScrollState()
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (scroll.value > 40) 0.92f else 0f,
+        animationSpec = tween(200),
+        label = "liveScrim"
+    )
     fun updateSettings(newSettings: LiveSettings) {
         settings = newSettings
         LiveRepository.saveSettings(newSettings)
