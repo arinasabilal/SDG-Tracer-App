@@ -1,4 +1,3 @@
-@@ -1,1032 +1,1037 @@
 // LOKASI DI GITHUB (TIMPA file lama): app/src/main/java/com/example/apk/ui/LevelUpApp.kt
 // Pengatur layar utama. Beranda = ringkasan + riwayat. Fitur dibuka dari tab Jelajah.
 // Perubahan tahap ini: navigasi (Up Save di bawah tab Jelajah), layar Jelajah, gaya dialog Keluar.
