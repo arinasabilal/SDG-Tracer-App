@@ -254,6 +254,11 @@ fun MainShell(onLogout: () -> Unit = {}) {
                     onOpenWater = { openIdx = 4 },
                     onBack = { closeModule() }
                 )
+                selected == 1 && openIdx == 2 -> TaskScreen(
+                    done = done,
+                    todayKey = todayKey,
+                    onBack = { closeModule() }
+                )
                 selected == 1 && openIdx in 0..2 -> ModuleScreen(
                     module = HabitModule.entries[openIdx],
                     habits = habits,
