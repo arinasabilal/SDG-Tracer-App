@@ -178,6 +178,16 @@ fun SaveScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
                 ModeSwitch(mode) { mode = it }
                 Spacer(Modifier.height(14.dp))
                 SaveProgressCard(mode, checkedCount, total, progress)
+                Spacer(Modifier.height(10.dp))
+                // Aturan: Up Save hari ini selesai kalau minimal satu mode sudah beres.
+                val saveDone = "save" in done
+                Text(
+                    if (saveDone) "✓ Up Save hari ini selesai" else "Selesaikan salah satu mode untuk menyelesaikan Up Save hari ini",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (saveDone) LuSaveIcon else LuTextDark.copy(alpha = 0.72f),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
             }
         }
 
