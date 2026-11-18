@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.BreakfastDining
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DinnerDining
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LunchDining
@@ -55,6 +56,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.apk.data.HabitRepository
 import com.example.apk.data.LiveStore
 import com.example.apk.data.SleepPlan
+import com.example.apk.data.SleepTracker
 import com.example.apk.data.WaterPlan
 import com.example.apk.data.WaterRepository
 import com.example.apk.ui.theme.LuBackground
@@ -67,6 +69,9 @@ import com.example.apk.ui.theme.LuTextGray
 import com.example.apk.ui.theme.LuTrack
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -118,7 +123,7 @@ fun LiveScreen(
     var waterCount by remember { mutableIntStateOf(0) }
     var waterPlan by remember { mutableStateOf<WaterPlan?>(null) }
     var mode by rememberSaveable { mutableIntStateOf(0) } // 0 = sebelum tidur, 1 = bangun tidur
-    var showPicker by remember { mutableStateOf(false) }
+    var tracker by remember { mutableStateOf<SleepTracker?>(null) }
 
     val doneNow by rememberUpdatedState(done)
 
@@ -136,11 +141,13 @@ fun LiveScreen(
         }
         val l3 = WaterRepository.observeWater(todayKey) { waterCount = it }
         val l4 = WaterRepository.observePlan { waterPlan = it }
+        val l5 = LiveStore.observeTracker { tracker = it }
         onDispose {
             l1?.remove()
             l2?.remove()
             l3?.remove()
             l4?.remove()
+            l5?.remove()
             // Simpan perubahan yang belum sempat tersimpan saat layar ditutup.
             if (edits > 0) LiveStore.saveSleep(plan)
         }
@@ -163,12 +170,15 @@ fun LiveScreen(
         edit(if (handle == 0) plan.copy(bedMinutes = minutes) else plan.copy(wakeMinutes = minutes))
     }
 
-    fun stepActive(delta: Int) {
-        val p = plan
-        edit(
-            if (mode == 0) p.copy(bedMinutes = liveWrap(p.bedMinutes + delta))
-            else p.copy(wakeMinutes = liveWrap(p.wakeMinutes + delta))
-        )
+    // Memilih periode tracker tidur. Mengetuk pilihan yang sedang berjalan tidak mengubah apa pun,
+    // kecuali periodenya sudah selesai: saat itu mengetuknya memulai periode baru dari hari ini.
+    fun pickPeriod(days: Int) {
+        val t = tracker
+        val finished = t != null && t.durationDays > 0 &&
+            liveDaysBetween(t.startDate, todayKey) + 1 > t.durationDays
+        if (t != null && t.durationDays == days && !finished) return
+        tracker = SleepTracker(days, todayKey)
+        LiveStore.saveTracker(days, todayKey)
     }
 
     fun stepWind(delta: Int) {
@@ -261,10 +271,11 @@ fun LiveScreen(
                     wakeOk = wakeOk,
                     onMode = { mode = it },
                     onMove = { h, m -> moveHandle(h, m) },
-                    onStep = { stepActive(it) },
                     onWindDelta = { stepWind(it) },
                     onWindSet = { edit(plan.copy(windDownMinutes = it)) },
-                    onOpenPicker = { showPicker = true },
+                    tracker = tracker,
+                    todayKey = todayKey,
+                    onPickPeriod = { pickPeriod(it) },
                     onToggleBed = { toggleBed() },
                     onToggleWake = { toggleWake() }
                 )
@@ -300,18 +311,6 @@ fun LiveScreen(
                 .fillMaxWidth()
                 .windowInsetsTopHeight(WindowInsets.statusBars)
                 .background(LuBackground.copy(alpha = scrimAlpha))
-        )
-    }
-
-    if (showPicker) {
-        LiveTimeDialog(
-            title = if (mode == 0) "Waktu tidur" else "Waktu bangun",
-            initial = if (mode == 0) plan.bedMinutes else plan.wakeMinutes,
-            onDismiss = { showPicker = false },
-            onConfirm = { m ->
-                moveHandle(mode, m)
-                showPicker = false
-            }
         )
     }
 }
@@ -434,10 +433,11 @@ private fun LiveSleepCard(
     wakeOk: Boolean,
     onMode: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
-    onStep: (Int) -> Unit,
     onWindDelta: (Int) -> Unit,
     onWindSet: (Int) -> Unit,
-    onOpenPicker: () -> Unit,
+    tracker: SleepTracker?,
+    todayKey: String,
+    onPickPeriod: (Int) -> Unit,
     onToggleBed: () -> Unit,
     onToggleWake: () -> Unit
 ) {
@@ -515,66 +515,15 @@ private fun LiveSleepCard(
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
-                if (mode == 0) "Sesuaikan waktu tidur" else "Sesuaikan waktu bangun",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = LuTextDark
+                "Geser lingkaran untuk mengatur jam tidur dan bangun (kelipatan 5 menit).",
+                fontSize = 11.sp,
+                color = LuTextGray
             )
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HoldPill(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp),
-                    background = soft,
-                    onStep = { onStep(-1) }
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Remove, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("1 menit", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent)
-                    }
-                }
-                HoldPill(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp),
-                    background = soft,
-                    onStep = { onStep(1) }
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("1 menit", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent)
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Geser lingkaran, atau tahan tombol untuk bergeser cepat.",
-                    fontSize = 11.sp,
-                    color = LuTextGray,
-                    modifier = Modifier.weight(1f)
-                )
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .clickable(onClick = onOpenPicker)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Ketik jam", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent)
-                }
-            }
+
+            Spacer(Modifier.height(16.dp))
+            LiveTrackerBlock(tracker, todayKey, onPickPeriod)
 
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = LuBorder)
@@ -622,6 +571,57 @@ private fun LiveSleepCard(
                 )
             }
         }
+    }
+}
+
+// Periode tracker tidur: 1 hari, 1 minggu, 1 bulan, atau Otomatis (berjalan terus tanpa batas waktu).
+@Composable
+private fun LiveTrackerBlock(tracker: SleepTracker?, todayKey: String, onPick: (Int) -> Unit) {
+    val options = listOf(1 to "1 hari", 7 to "1 minggu", 30 to "1 bulan", 0 to "Otomatis")
+    val dayNo = if (tracker == null) 0 else liveDaysBetween(tracker.startDate, todayKey) + 1
+    val finished = tracker != null && tracker.durationDays > 0 && dayNo > tracker.durationDays
+    val info = if (tracker == null) {
+        "Pilih berapa lama tracker tidur berjalan."
+    } else if (tracker.durationDays == 0) {
+        "Berjalan otomatis tanpa batas waktu · mulai ${livePretty(tracker.startDate)}"
+    } else if (finished) {
+        "Periode selesai. Ketuk pilihan yang sama untuk memulai lagi."
+    } else {
+        "Hari ke-$dayNo dari ${tracker.durationDays} · berlaku sampai " +
+            livePretty(liveAddDays(tracker.startDate, tracker.durationDays - 1))
+    }
+
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.DateRange, contentDescription = null, tint = LiveIndigo, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Periode tracker", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = LuTextDark)
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { (days, label) ->
+                val active = tracker != null && tracker.durationDays == days
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (active) LiveIndigo else LiveIndigoSoft)
+                        .clickable { onPick(days) }
+                        .padding(vertical = 11.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        label,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (active) Color.White else LuTextDark,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(info, fontSize = 12.sp, color = LuTextGray)
     }
 }
 
@@ -1046,55 +1046,6 @@ private fun LiveMealRow(meal: LiveMeal, checked: Boolean, onToggle: () -> Unit) 
 
 // ---------------------------------------------------------------- DIALOG KETIK JAM
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LiveTimeDialog(
-    title: String,
-    initial: Int,
-    onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit
-) {
-    val state = rememberTimePickerState(
-        initialHour = initial / 60,
-        initialMinute = initial % 60,
-        is24Hour = true
-    )
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            shape = RoundedCornerShape(28.dp),
-            color = LuSurface,
-            tonalElevation = 6.dp
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = LuTextDark,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(16.dp))
-                TimePicker(state = state)
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) { Text("Batal") }
-                    TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) { Text("Simpan") }
-                }
-            }
-        }
-    }
-}
-
 // ---------------------------------------------------------------- KOMPONEN KECIL
 
 @Composable
@@ -1169,4 +1120,28 @@ private fun snap5(m: Int): Int = ((m + 2) / 5 * 5) % 1440
 private fun circDist(a: Int, b: Int): Int {
     val d = abs(a - b)
     return min(d, 1440 - d)
+}
+
+// ---------------------------------------------------------------- TANGGAL (periode tracker)
+
+private fun liveParseDate(key: String): Long? =
+    runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(key)?.time }.getOrNull()
+
+private fun liveDaysBetween(fromKey: String, toKey: String): Int {
+    val a = liveParseDate(fromKey) ?: return 0
+    val b = liveParseDate(toKey) ?: return 0
+    return ((b - a) / 86_400_000.0).roundToInt()
+}
+
+private fun liveAddDays(key: String, days: Int): String {
+    val t = liveParseDate(key) ?: return key
+    val cal = Calendar.getInstance()
+    cal.timeInMillis = t
+    cal.add(Calendar.DAY_OF_YEAR, days)
+    return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cal.time)
+}
+
+private fun livePretty(key: String): String {
+    val t = liveParseDate(key) ?: return key
+    return SimpleDateFormat("d MMM yyyy", Locale.forLanguageTag("id-ID")).format(Date(t))
 }
