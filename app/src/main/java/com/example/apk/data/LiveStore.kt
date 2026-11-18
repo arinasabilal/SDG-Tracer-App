@@ -1,7 +1,7 @@
 // LOKASI: app/src/main/java/com/example/apk/data/LiveStore.kt (file BARU)
 // Up Live: jadwal tidur, status tidur/bangun, dan catatan makan.
 // Memakai dokumen yang sama dengan sebelumnya, jadi jam tidur yang sudah tersimpan tetap terbaca.
-//   users/{uid}/settings/live      -> bedMinutes, wakeMinutes, windDownMinutes
+//   users/{uid}/settings/live      -> bedMinutes, wakeMinutes, windDownMinutes, trackerDays, trackerStart
 //   users/{uid}/days/{tanggal}     -> sleepBed, sleepWake (boolean), meals (daftar)
 package com.example.apk.data
 
@@ -22,6 +22,9 @@ data class SleepPlan(
         val DEFAULT = SleepPlan(bedMinutes = 22 * 60, wakeMinutes = 6 * 60, windDownMinutes = 30)
     }
 }
+
+// Periode tracker tidur. durationDays: 1, 7, 30, atau 0 = otomatis (berjalan terus tanpa batas waktu).
+data class SleepTracker(val durationDays: Int, val startDate: String)
 
 object LiveStore {
 
@@ -53,6 +56,30 @@ object LiveStore {
                     "wakeMinutes" to p.wakeMinutes,
                     "windDownMinutes" to p.windDownMinutes
                 ),
+                SetOptions.merge()
+            )
+    }
+
+    // onChange(null) = periode tracker belum pernah dipilih.
+    fun observeTracker(onChange: (SleepTracker?) -> Unit): ListenerRegistration? {
+        val ref = userDoc()?.collection("settings")?.document("live") ?: return null
+        return ref.addSnapshotListener { snap, _ ->
+            if (snap == null) return@addSnapshotListener
+            val days = snap.getLong("trackerDays")
+            val start = snap.getString("trackerStart")
+            if (days == null || start == null) {
+                onChange(null)
+            } else {
+                onChange(SleepTracker(days.toInt(), start))
+            }
+        }
+    }
+
+    // merge = true: tidak menghapus bedMinutes, wakeMinutes, dan windDownMinutes yang sudah tersimpan.
+    fun saveTracker(durationDays: Int, startDate: String) {
+        userDoc()?.collection("settings")?.document("live")
+            ?.set(
+                mapOf("trackerDays" to durationDays, "trackerStart" to startDate),
                 SetOptions.merge()
             )
     }
