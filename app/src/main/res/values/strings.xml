@@ -1,7 +1,3 @@
 <resources>
-    <string name="Level Up">APK</string>
-    <string name="action_go">Go</string>
-    <string name="label_prompt">Prompt</string>
-    <string name="prompt_placeholder">Provide a recipe for the baked goods in the image</string>
-    <string name="results_placeholder">(Results will appear here)</string>
+    <string name="app_name">Level Up</string>
 </resources>
