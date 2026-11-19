@@ -1,4 +1,4 @@
-// LOKASI DI GITHUB (TIMPA file lama): app/src/main/java/com/example/apk/ui/LevelUpApp.kt
+// LOKASI FILE: app/src/main/java/com/example/apk/ui/theme/LevelUpApp.kt
 // Pengatur layar utama. Beranda = ringkasan + riwayat. Fitur dibuka dari tab Jelajah.
 package com.example.apk.ui
 
@@ -96,7 +96,6 @@ import com.example.apk.ui.theme.LuLiveIcon
 import com.example.apk.ui.theme.LuPrimary
 import com.example.apk.ui.theme.LuSaveBg
 import com.example.apk.ui.theme.LuSaveIcon
-import com.example.apk.ui.theme.LuSkySoft
 import com.example.apk.ui.theme.LuSurface
 import com.example.apk.ui.theme.LuTaskBg
 import com.example.apk.ui.theme.LuTaskIcon
@@ -178,9 +177,13 @@ fun MainShell(onLogout: () -> Unit = {}) {
         }
     }
 
-    var habits by remember { mutableStateOf<List<Habit>>(emptyList()) }
-    var done by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var history by remember { mutableStateOf>>(emptyMap()) }
+    val initialHabits: List<Habit> = emptyList()
+    val initialDone: Set<String> = emptySet()
+    val initialHistory: Map<String, Set<String>> = emptyMap()
+
+    var habits by remember { mutableStateOf(initialHabits) }
+    var done by remember { mutableStateOf(initialDone) }
+    var history by remember { mutableStateOf(initialHistory) }
     var seeded by remember { mutableStateOf(false) }
 
     DisposableEffect(todayKey) {
@@ -786,10 +789,10 @@ private fun ExploreScreen(
     onOpen: (Int) -> Unit
 ) {
     val order = listOf(HabitModule.HEALTH, HabitModule.EDUCATION, HabitModule.SANITATION)
+    val initialTip: Triple<String, String, String>? = null
 
-    // State interaktif halaman Jelajah
     var selectedCategory by rememberSaveable { mutableStateOf("Semua") }
-    var selectedTip by remember { mutableStateOf<Triple<String, String, String>?>(null) }
+    var selectedTip by remember { mutableStateOf(initialTip) }
     var factIndex by rememberSaveable { mutableIntStateOf(0) }
 
     val categories = listOf("Semua", "SDG 3 · Sehat", "SDG 4 · Belajar", "SDG 6/7 · Hemat")
@@ -1041,7 +1044,6 @@ private fun ExploreScreen(
         Spacer(Modifier.height(20.dp))
     }
 
-    // Dialog Panduan Detail saat Kartu Ide Diklik
     selectedTip?.let { tip ->
         AlertDialog(
             onDismissRequest = { selectedTip = null },
@@ -1531,7 +1533,7 @@ private fun HistoryRow(dayKey: String, todayKey: String, habits: List<Habit>, do
     }
 }
 
-// ---------------------------------------------------------------- LAYAR FITUR (Up Live dan Up Task, sementara)
+// ---------------------------------------------------------------- LAYAR FITUR
 
 @Composable
 private fun ModuleScreen(
@@ -1618,7 +1620,6 @@ private fun ModuleScreen(
                 }
                 items.forEach { h ->
                     val checked = h.id in done
-                    // "water" tidak dicentang manual: selesai otomatis saat target gelas tercapai.
                     val isWater = h.id == "water"
                     Row(
                         modifier = Modifier
