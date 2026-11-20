@@ -79,6 +79,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
@@ -88,6 +89,10 @@ import com.example.apk.auth.AuthManager
 import com.example.apk.data.Habit
 import com.example.apk.data.HabitModule
 import com.example.apk.data.HabitRepository
+import com.example.apk.data.LiveStore
+import com.example.apk.data.TaskRepository
+import com.example.apk.notif.ReminderPrefs
+import com.example.apk.notif.ReminderScheduler
 import com.example.apk.ui.theme.LuBackground
 import com.example.apk.ui.theme.LuBookBg
 import com.example.apk.ui.theme.LuBorder
@@ -115,7 +120,8 @@ enum class Stage { SPLASH, LOGIN, REGISTER, FORGOT, MAIN }
 @Composable
 fun LevelUpApp() {
     var stage by rememberSaveable { mutableStateOf(Stage.SPLASH) }
-
+    val appContext = LocalContext.current.applicationContext
+    
     BackHandler(enabled = stage == Stage.REGISTER || stage == Stage.FORGOT) {
         stage = Stage.LOGIN
     }
@@ -140,6 +146,8 @@ fun LevelUpApp() {
             Stage.MAIN -> MainShell(
                 onLogout = {
                     AuthManager.signOut()
+                    ReminderPrefs.clearUserData(appContext)
+                    ReminderScheduler.cancelAll(appContext)
                     stage = Stage.LOGIN
                 }
             )
@@ -165,6 +173,29 @@ fun MainShell(onLogout: () -> Unit = {}) {
     var cameFromHome by rememberSaveable { mutableStateOf(false) }
     val userName = remember { AuthManager.displayName }
     val userEmail = remember { AuthManager.email }
+    
+    val shellContext = LocalContext.current.applicationContext
+    val requestNotifPermission = rememberNotificationPermissionRequester()
+    LaunchedEffect(Unit) {
+        if (ReminderPrefs.enabled(shellContext)) requestNotifPermission()
+    }
+    DisposableEffect(Unit) {
+        val r1 = LiveStore.observeSleep { p ->
+            ReminderPrefs.setSleep(shellContext, p.bedMinutes, p.wakeMinutes, p.windDownMinutes)
+            ReminderScheduler.rescheduleAll(shellContext)
+        }
+        val r2 = TaskRepository.observeTasks { list ->
+            ReminderPrefs.setTasks(
+                shellContext,
+                list.filter { !it.done && it.deadline.isNotEmpty() }.map { it.deadline to it.title }
+            )
+            ReminderScheduler.rescheduleAll(shellContext)
+        }
+        onDispose {
+            r1?.remove()
+            r2?.remove()
+        }
+    }
 
     // Tanggal hari ini dicek ulang tiap 30 detik. Setelah lewat tengah malam, key berganti,
     // pendengar data dipasang ulang untuk tanggal baru, dan centang hari baru mulai kosong.
@@ -383,7 +414,9 @@ fun ProfileScreen(
     var showLogoutConfirm by rememberSaveable { mutableStateOf(false) }
 
     // State Pengaturan Aplikasi
-    var smartReminder by rememberSaveable { mutableStateOf(true) }
+    val reminderContext = LocalContext.current.applicationContext
+    var smartReminder by remember { mutableStateOf(ReminderPrefs.enabled(reminderContext)) }
+    val requestNotifPermission = rememberNotificationPermissionRequester()
     var darkMode by rememberSaveable { mutableStateOf(false) }
 
     Column(
@@ -599,10 +632,17 @@ fun ProfileScreen(
                     Spacer(Modifier.width(8.dp))
                     Switch(
                         checked = smartReminder,
-                        onCheckedChange = { smartReminder = it }
+                        onCheckedChange = {
+                            smartReminder = it
+                            ReminderPrefs.setEnabled(reminderContext, it)
+                            ReminderScheduler.rescheduleAll(reminderContext)
+                            if (it) requestNotifPermission()
+                        }
                     )
                 }
-
+                
+                ReminderExtras(enabled = smartReminder)
+                
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 8.dp),
                     color = Color(0xFFF1F5F9),
