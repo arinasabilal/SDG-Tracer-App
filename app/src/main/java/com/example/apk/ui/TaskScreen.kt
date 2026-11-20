@@ -3,6 +3,7 @@
 package com.example.apk.ui
 
 import android.os.SystemClock
+import com.example.apk.notif.ReminderScheduler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -117,6 +118,15 @@ object FocusTimer {
         message = null
         endAt = SystemClock.elapsedRealtime() + remainingSec * 1000L
         running = true
+        ReminderScheduler.appContext?.let {
+            val doneTitle = if (isBreak) "Istirahat selesai" else "Sesi fokus selesai"
+            val doneText = if (isBreak) {
+                "Siap fokus lagi? Buka Up Task untuk mulai."
+            } else {
+                "Kerja bagus! Waktunya istirahat $breakMin menit."
+            }
+            ReminderScheduler.scheduleTimer(it, remainingSec, doneTitle, doneText)
+        }
         job?.cancel()
         job = scope.launch {
             while (running) {
@@ -134,10 +144,12 @@ object FocusTimer {
     fun pause() {
         running = false
         job?.cancel()
+        ReminderScheduler.appContext?.let { ReminderScheduler.cancelTimer(it) }
     }
 
     fun reset() {
         job?.cancel()
+        ReminderScheduler.appContext?.let { ReminderScheduler.cancelTimer(it) }
         running = false
         isBreak = false
         remainingSec = focusMin * 60
