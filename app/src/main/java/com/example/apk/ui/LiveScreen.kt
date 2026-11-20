@@ -296,7 +296,7 @@ fun LiveScreen(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "Pengingat otomatis untuk jeda layar dan jam tidur hadir di tahap berikutnya.",
+                        "Pengingat otomatis saat jam berangkat dan jam tidur aktif. Atur jam berangkat di Profil.",
                         fontSize = 12.sp,
                         color = LuTextGray
                     )
