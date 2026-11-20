@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+       <!-- Notifikasi (Android 13+ meminta izin saat aplikasi berjalan) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Menjadwalkan ulang pengingat setelah HP dinyalakan ulang -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Alarm tepat waktu (pengguna bisa mengizinkan lewat Profil; kalau tidak, memakai alarm biasa) -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+        
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -22,6 +29,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+                <receiver
+            android:name=".notif.ReminderReceiver"
+            android:exported="false" />
+
+       <receiver
+            android:name=".notif.BootReceiver"
+            android:exported="true">
+           <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+       </receiver>
+        
     </application>
 
 </manifest>
