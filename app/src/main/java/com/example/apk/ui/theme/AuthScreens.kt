@@ -51,6 +51,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -334,6 +336,49 @@ private fun MessageBanner(text: String, isError: Boolean) {
 
 // onGoRegister dan onGoForgot diberi nilai awal supaya file lama yang hanya memberi onLogin tetap bisa dikompilasi.
 @Composable
+private fun OrDivider() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        HorizontalDivider(Modifier.weight(1f), color = LuBorder)
+        Text("atau", modifier = Modifier.padding(horizontal = 12.dp), fontSize = 12.sp, color = LuTextGray)
+        HorizontalDivider(Modifier.weight(1f), color = LuBorder)
+    }
+}
+
+@Composable
+private fun GoogleAuthButton(
+    label: String,
+    enabled: Boolean,
+    onBusyChange: (Boolean) -> Unit,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    OutlinedButton(
+        onClick = {
+            onBusyChange(true)
+            AuthManager.signInWithGoogle(context, scope) { success, error ->
+                onBusyChange(false)
+                when {
+                    success -> onSuccess()
+                    error != null -> onError(error)
+                    // Dibatalkan pengguna: tidak menampilkan apa-apa.
+                }
+            }
+        },
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().height(50.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, LuBorder)
+    ) {
+        Text("G", fontWeight = FontWeight.Bold, color = LuPrimary)
+        Spacer(Modifier.width(10.dp))
+        Text(label, fontWeight = FontWeight.SemiBold, color = LuTextDark)
+    }
+}
+
+@Composable
 fun LoginScreen(
     onLogin: () -> Unit,
     onGoRegister: () -> Unit = {},
@@ -416,6 +461,20 @@ fun LoginScreen(
             color = LuPrimary,
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp
+        )
+
+        Spacer(Modifier.height(8.dp))
+        OrDivider()
+        Spacer(Modifier.height(16.dp))
+        GoogleAuthButton(
+            label = "Lanjutkan dengan Google",
+            enabled = !loading,
+            onBusyChange = { loading = it },
+            onSuccess = onLogin,
+            onError = {
+                message = it
+                messageIsError = true
+            }
         )
 
         Spacer(Modifier.height(24.dp))
@@ -531,6 +590,17 @@ fun RegisterScreen(
             Spacer(Modifier.height(20.dp))
             PrimaryAuthButton("Daftar", loading, submit)
         }
+
+        Spacer(Modifier.height(16.dp))
+        OrDivider()
+        Spacer(Modifier.height(16.dp))
+        GoogleAuthButton(
+            label = "Daftar dengan Google",
+            enabled = !loading,
+            onBusyChange = { loading = it },
+            onSuccess = onRegistered,
+            onError = { message = it }
+        )
 
         Spacer(Modifier.height(24.dp))
         Row(
