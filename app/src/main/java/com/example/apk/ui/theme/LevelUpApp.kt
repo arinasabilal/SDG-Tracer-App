@@ -791,9 +791,9 @@ private fun moduleName(m: HabitModule) = when (m) {
 }
 
 private fun moduleBlurb(m: HabitModule) = when (m) {
-    HabitModule.HEALTH -> "Minum air putih, jam tidur, aktivitas fisik"
+    HabitModule.HEALTH -> "Minum air putih, jam tidur, pola makan"
     HabitModule.SANITATION -> "Matikan perangkat sebelum berangkat dan tidur"
-    HabitModule.EDUCATION -> "Sesi belajar, mode baca, mode upgrade"
+    HabitModule.EDUCATION -> "Timer fokus, daftar tugas, tenggat"
 }
 
 private fun moduleColors(m: HabitModule): Pair<Color, Color> = when (m) {
