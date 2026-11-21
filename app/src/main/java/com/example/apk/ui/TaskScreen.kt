@@ -12,6 +12,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -185,6 +187,9 @@ fun TaskScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
     var focusLoaded by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
     var toDelete by remember { mutableStateOf<TaskItem?>(null) }
+    var toEdit by remember { mutableStateOf<TaskItem?>(null) }
+    var sortMode by rememberSaveable { mutableIntStateOf(0) }          // 0 = tenggat, 1 = prioritas
+    var courseFilter by rememberSaveable { mutableStateOf("") }        // "" = semua mata kuliah
     val doneNow by rememberUpdatedState(done)
 
     DisposableEffect(todayKey) {
@@ -233,6 +238,21 @@ fun TaskScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
     )
     val finished = tasks.filter { it.done }.sortedByDescending { it.createdAt }
     val urgent = open.count { it.deadline.isNotEmpty() && it.deadline <= todayKey }
+    val courses = tasks.map { it.course }.filter { it.isNotBlank() }.distinct().sorted()
+    val activeCourse = if (courseFilter in courses) courseFilter else ""
+    val shownBase = open.filter { activeCourse.isEmpty() || it.course == activeCourse }
+    val shown = if (sortMode == 1) {
+        shownBase.sortedWith(
+            compareBy<TaskItem>(
+                { it.priority },
+                { if (it.deadline.isEmpty()) "9999-99-99" else it.deadline },
+                { it.createdAt }
+            )
+        )
+    } else {
+        shownBase
+    }
+    val finishedShown = finished.filter { activeCourse.isEmpty() || it.course == activeCourse }
 
     val focusOk = "focus" in done
     val tasksOk = "tasks" in done
@@ -294,6 +314,29 @@ fun TaskScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
             }
             Spacer(Modifier.height(12.dp))
 
+                        if (tasks.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TkFilterChip("Urut: Tenggat", sortMode == 0) { sortMode = 0 }
+                    TkFilterChip("Urut: Prioritas", sortMode == 1) { sortMode = 1 }
+                }
+                if (courses.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TkFilterChip("Semua matkul", activeCourse.isEmpty()) { courseFilter = "" }
+                        courses.forEach { c ->
+                            TkFilterChip(c, activeCourse == c) { courseFilter = c }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+            
             if (tasks.isEmpty()) {
                 TkEmptyCard()
             } else {
@@ -304,11 +347,12 @@ fun TaskScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(Modifier.padding(10.dp)) {
-                        open.forEach { t ->
+                        shown.forEach { t ->
                             TkTaskRow(
                                 task = t,
                                 todayKey = todayKey,
                                 onToggle = { TaskRepository.setTaskDone(t.id, true) },
+                                onEdit = { toEdit = t },
                                 onDelete = { toDelete = t }
                             )
                         }
@@ -319,23 +363,31 @@ fun TaskScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
                                 color = LuTextGray,
                                 modifier = Modifier.padding(12.dp)
                             )
+                        } else if (shown.isEmpty()) {
+                            Text(
+                                "Tidak ada tugas aktif untuk mata kuliah ini.",
+                                fontSize = 13.sp,
+                                color = LuTextGray,
+                                modifier = Modifier.padding(12.dp)
+                            )
                         }
-                        if (finished.isNotEmpty()) {
+                        if (finishedShown.isNotEmpty()) {
                             Spacer(Modifier.height(6.dp))
                             HorizontalDivider(color = LuBorder)
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                "Selesai (${finished.size})",
+                                "Selesai (${finishedShown.size})",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = LuTextGray,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
-                            finished.forEach { t ->
+                            finishedShown.forEach { t ->
                                 TkTaskRow(
                                     task = t,
                                     todayKey = todayKey,
                                     onToggle = { TaskRepository.setTaskDone(t.id, false) },
+                                    onEdit = { toEdit = t },
                                     onDelete = { toDelete = t }
                                 )
                             }
@@ -380,13 +432,28 @@ fun TaskScreen(done: Set<String>, todayKey: String, onBack: () -> Unit) {
         }
     }
 
-    if (showAdd) {
-        TkAddDialog(
+        if (showAdd) {
+        TkTaskDialog(
+            initial = null,
+            courses = courses,
             todayKey = todayKey,
             onDismiss = { showAdd = false },
-            onSave = { title, deadline, priority ->
-                TaskRepository.addTask(title, deadline, priority)
+            onSave = { title, deadline, priority, course ->
+                TaskRepository.addTask(title, deadline, priority, course)
                 showAdd = false
+            }
+        )
+    }
+
+    toEdit?.let { t ->
+        TkTaskDialog(
+            initial = t,
+            courses = courses,
+            todayKey = todayKey,
+            onDismiss = { toEdit = null },
+            onSave = { title, deadline, priority, course ->
+                TaskRepository.updateTask(t.id, title, deadline, priority, course)
+                toEdit = null
             }
         )
     }
@@ -762,7 +829,13 @@ private fun TkEmptyCard() {
 }
 
 @Composable
-private fun TkTaskRow(task: TaskItem, todayKey: String, onToggle: () -> Unit, onDelete: () -> Unit) {
+private fun TkTaskRow(
+    task: TaskItem,
+    todayKey: String,
+    onToggle: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     val pc = tkPriorityColor(task.priority)
     val (label, fg) = tkDeadlineLabel(task.deadline, todayKey)
     val shownFg = if (task.done) LuTextGray else fg
@@ -789,6 +862,9 @@ private fun TkTaskRow(task: TaskItem, todayKey: String, onToggle: () -> Unit, on
                 color = if (task.done) LuTextGray else LuTextDark,
                 textDecoration = if (task.done) TextDecoration.LineThrough else TextDecoration.None
             )
+                if (task.course.isNotBlank()) {
+                Text(task.course, fontSize = 11.sp, color = LuTextGray)
+            }
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -809,6 +885,14 @@ private fun TkTaskRow(task: TaskItem, todayKey: String, onToggle: () -> Unit, on
                 Spacer(Modifier.width(4.dp))
                 Text(tkPriorityLabel(task.priority), fontSize = 11.sp, color = LuTextGray)
             }
+        }
+                IconButton(onClick = onEdit) {
+            Icon(
+                Icons.Default.Edit,
+                contentDescription = "Ubah ${task.title}",
+                tint = LuTextGray,
+                modifier = Modifier.size(20.dp)
+            )
         }
         IconButton(onClick = onDelete) {
             Icon(
@@ -851,7 +935,7 @@ private fun TkBadge(icon: ImageVector, from: Color, to: Color, size: Dp) {
     }
 }
 
-// ---------------------------------------------------------------- DIALOG TAMBAH TUGAS
+// ---------------------------------------------------------------- DIALOG TAMBAH / UBAH TUGAS
 
 private val tkDeadlineOptions = listOf(
     -1 to "Tanpa tenggat", 0 to "Hari ini", 1 to "Besok", 2 to "Lusa",
@@ -859,19 +943,43 @@ private val tkDeadlineOptions = listOf(
 )
 
 @Composable
-private fun TkAddDialog(
+private fun TkFilterChip(label: String, active: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (active) LuTaskIcon else LuTaskBg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (active) Color.White else LuTextDark
+        )
+    }
+}
+
+// initial = null berarti tugas baru; selain itu mengubah tugas yang ada.
+@Composable
+private fun TkTaskDialog(
+    initial: TaskItem?,
+    courses: List<String>,
     todayKey: String,
     onDismiss: () -> Unit,
-    onSave: (String, String, Int) -> Unit
+    onSave: (String, String, Int, String) -> Unit
 ) {
-    var title by rememberSaveable { mutableStateOf("") }
-    var priority by rememberSaveable { mutableIntStateOf(1) }
-    var offset by rememberSaveable { mutableIntStateOf(1) }
-    val deadlineKey = if (offset < 0) "" else tkAddDays(todayKey, offset)
+    var title by rememberSaveable { mutableStateOf(initial?.title ?: "") }
+    var course by rememberSaveable { mutableStateOf(initial?.course ?: "") }
+    var priority by rememberSaveable { mutableIntStateOf(initial?.priority ?: 1) }
+    var deadlineKey by rememberSaveable {
+        mutableStateOf(initial?.deadline ?: tkAddDays(todayKey, 1))
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tambah tugas") },
+        title = { Text(if (initial == null) "Tambah tugas" else "Ubah tugas") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
@@ -882,6 +990,27 @@ private fun TkAddDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = course,
+                    onValueChange = { course = it.take(30) },
+                    label = { Text("Mata kuliah / pelajaran (opsional)") },
+                    placeholder = { Text("misal: Kimia Dasar") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (courses.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        courses.forEach { c ->
+                            TkFilterChip(c, course == c) { course = c }
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(16.dp))
                 Text("Prioritas", fontSize = 12.sp, color = LuTextGray)
@@ -921,13 +1050,19 @@ private fun TkAddDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         rowItems.forEach { (off, label) ->
-                            val active = offset == off
+                            val active = if (off < 0) {
+                                deadlineKey.isEmpty()
+                            } else {
+                                deadlineKey == tkAddDays(todayKey, off)
+                            }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(if (active) LuTaskIcon else LuTaskBg)
-                                    .clickable { offset = off }
+                                    .clickable {
+                                        deadlineKey = if (off < 0) "" else tkAddDays(todayKey, off)
+                                    }
                                     .padding(vertical = 10.dp),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -956,7 +1091,7 @@ private fun TkAddDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { if (title.isNotBlank()) onSave(title, deadlineKey, priority) },
+                onClick = { if (title.isNotBlank()) onSave(title.trim(), deadlineKey, priority, course.trim()) },
                 enabled = title.isNotBlank()
             ) {
                 Text("Simpan")
