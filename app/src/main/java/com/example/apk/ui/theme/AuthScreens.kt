@@ -418,30 +418,6 @@ fun LoginScreen(
             fontSize = 13.sp
         )
 
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            HorizontalDivider(Modifier.weight(1f), color = LuBorder)
-            Text("atau", modifier = Modifier.padding(horizontal = 12.dp), fontSize = 12.sp, color = LuTextGray)
-            HorizontalDivider(Modifier.weight(1f), color = LuBorder)
-        }
-        Spacer(Modifier.height(16.dp))
-
-        OutlinedButton(
-            onClick = {
-                // Login Google belum disiapkan (butuh library tambahan dan SHA-1).
-                message = "Login dengan Google segera hadir."
-                messageIsError = false
-            },
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, LuBorder)
-        ) {
-            Text("G", fontWeight = FontWeight.Bold, color = LuPrimary)
-            Spacer(Modifier.width(10.dp))
-            Text("Lanjutkan dengan Google", fontWeight = FontWeight.SemiBold, color = LuTextDark)
-        }
-
         Spacer(Modifier.height(24.dp))
         Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Text("Belum punya akun? ", fontSize = 13.sp, color = LuTextGray)
