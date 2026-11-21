@@ -19,7 +19,8 @@ data class TaskItem(
     val deadline: String,
     val priority: Int,
     val done: Boolean,
-    val createdAt: Long
+    val createdAt: Long,
+    val course: String = ""
 )
 
 data class FocusSettings(val focusMinutes: Int, val breakMinutes: Int) {
@@ -47,14 +48,15 @@ object TaskRepository {
                     deadline = d.getString("deadline") ?: "",
                     priority = (d.getLong("priority") ?: 1L).toInt(),
                     done = d.getBoolean("done") ?: false,
-                    createdAt = d.getLong("createdAt") ?: 0L
+                    createdAt = d.getLong("createdAt") ?: 0L,
+                    course = d.getString("course") ?: ""
                 )
             }
             onChange(list)
         }
     }
 
-    fun addTask(title: String, deadline: String, priority: Int) {
+    fun addTask(title: String, deadline: String, priority: Int, course: String = "") {
         val col = userDoc()?.collection("tasks") ?: return
         col.add(
             mapOf(
@@ -62,11 +64,24 @@ object TaskRepository {
                 "deadline" to deadline,
                 "priority" to priority,
                 "done" to false,
-                "createdAt" to System.currentTimeMillis()
+                "createdAt" to System.currentTimeMillis(),
+                "course" to course.trim()
             )
         )
     }
 
+        // Mengubah isi tugas. Status selesai dan waktu dibuat tidak ikut berubah.
+    fun updateTask(id: String, title: String, deadline: String, priority: Int, course: String) {
+        userDoc()?.collection("tasks")?.document(id)?.update(
+            mapOf(
+                "title" to title.trim(),
+                "deadline" to deadline,
+                "priority" to priority,
+                "course" to course.trim()
+            )
+        )
+    }
+    
     fun setTaskDone(id: String, done: Boolean) {
         userDoc()?.collection("tasks")?.document(id)?.update("done", done)
     }
