@@ -7,12 +7,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.example.apk.notif.NotificationHelper
+import com.example.apk.notif.ReminderScheduler
 import com.example.apk.ui.LevelUpApp
 import com.example.apk.ui.theme.LevelUpTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ReminderScheduler.appContext = applicationContext
+        NotificationHelper.ensureChannels(applicationContext)
         // Bar atas dan bawah transparan, ikon sistem gelap (tema Level Up terang).
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
@@ -27,5 +31,11 @@ class MainActivity : ComponentActivity() {
                 LevelUpApp()
             }
         }
+        
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        ReminderScheduler.rescheduleAll(applicationContext)
     }
 }

@@ -4,6 +4,19 @@
 package com.example.apk.auth
 
 import android.util.Patterns
+import android.content.Context
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import com.google.firebase.auth.GoogleAuthProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.FirebaseAuth
@@ -82,6 +95,68 @@ object AuthManager {
 
     fun signOut() {
         auth().signOut()
+    }
+
+    // Id klien web dibuat otomatis oleh plugin google-services dari google-services.json,
+    // tapi hanya kalau login Google sudah diaktifkan di Firebase. Dibaca lewat nama supaya
+    // aplikasi tetap bisa dibangun sebelum file itu diperbarui.
+    private fun webClientId(context: Context): String? {
+        val id = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        return if (id == 0) null else context.getString(id)
+    }
+
+    // onDone(sukses, pesan):
+    //   (true, null)   = berhasil masuk (akun baru otomatis dibuat Firebase pada login pertama)
+    //   (false, null)  = pengguna menutup jendela pilih akun, tidak perlu pesan
+    //   (false, "...") = gagal, tampilkan pesan
+    fun signInWithGoogle(context: Context, scope: CoroutineScope, onDone: (Boolean, String?) -> Unit) {
+        val webClientId = webClientId(context)
+        if (webClientId == null) {
+            onDone(
+                false,
+                "Login Google belum aktif. Aktifkan di Firebase, lalu perbarui google-services.json."
+            )
+            return
+        }
+        scope.launch {
+            try {
+                val option = GetSignInWithGoogleOption.Builder(webClientId).build()
+                val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
+                val result = CredentialManager.create(context).getCredential(context, request)
+                val credential = result.credential
+                if (credential is CustomCredential &&
+                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                ) {
+                    val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
+                    auth().signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                onDone(true, null)
+                            } else {
+                                val e = task.exception
+                                onDone(
+                                    false,
+                                    if (e is FirebaseNetworkException || e is FirebaseTooManyRequestsException) {
+                                        friendlyMessage(e)
+                                    } else {
+                                        "Gagal masuk dengan Google: ${e?.localizedMessage ?: "tidak diketahui"}"
+                                    }
+                                )
+                            }
+                        }
+                } else {
+                    onDone(false, "Jenis kredensial Google tidak dikenali.")
+                }
+            } catch (e: GetCredentialCancellationException) {
+                onDone(false, null)
+            } catch (e: NoCredentialException) {
+                onDone(false, "Tidak ada akun Google di HP ini. Tambahkan akun Google di Pengaturan, lalu coba lagi.")
+            } catch (e: GoogleIdTokenParsingException) {
+                onDone(false, "Respons Google tidak valid. Coba lagi.")
+            } catch (e: GetCredentialException) {
+                onDone(false, "Login Google gagal: ${e.message ?: "tidak diketahui"}")
+            }
+        }
     }
 
     // Urutan penting: WeakPassword adalah turunan InvalidCredentials, jadi dicek lebih dulu.
